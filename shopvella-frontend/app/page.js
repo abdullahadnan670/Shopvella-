@@ -157,7 +157,9 @@ export default function Storefront() {
         }
       };
 
-      const response = await fetch('http://localhost:5000/api/orders', {
+      // Replace line 109 with this clean dynamic reference:
+const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const response = await fetch(`${baseApiUrl}/api/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
