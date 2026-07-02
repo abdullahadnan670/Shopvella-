@@ -15,6 +15,12 @@ export default function Storefront() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All Drops');
 
+  // Delivery Checkout Form Input Parameters State Mapping Control Layers
+  const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+
   const categoriesList = ['All Drops', 'Hoodies', 'Essentials', 'Accessories'];
 
   // Synced state fetching logic hook map
@@ -33,8 +39,8 @@ export default function Storefront() {
           urlParams.append('category', activeCategory);
         }
 
-        const fetchUrl = process.env.NEXT_PUBLIC_API_URL ||`http://localhost:5000/api/products?${urlParams.toString()}`;
-        const response = await fetch(`${fetchUrl}/api/products`);
+        const fetchUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/products';
+        const response = await fetch(`${fetchUrl}?${urlParams.toString()}`);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -128,6 +134,12 @@ export default function Storefront() {
   };
 
   const handleCheckout = async () => {
+    // 1. Ensure required client verification components are completely available prior to transmission
+    if (!customerName.trim() || !customerEmail.trim() || !shippingAddress.trim() || !phoneNumber.trim()) {
+      alert('Please fully fill out all shipping and contact details before processing your Cash on Delivery order.');
+      return;
+    }
+
     try {
       setCheckoutLoading(true);
       
@@ -137,9 +149,15 @@ export default function Storefront() {
           quantity: item.quantity,
           name: item.name
         })),
+        customerDetails: {
+          name: customerName.trim(),
+          email: customerEmail.trim(),
+          shippingAddress: shippingAddress.trim(),
+          phoneNumber: phoneNumber.trim()
+        }
       };
 
-      const response = await fetch('http://localhost:5000/api/checkout', {
+      const response = await fetch('http://localhost:5000/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,14 +167,22 @@ export default function Storefront() {
 
       const result = await response.json();
 
-      if (result.success && result.url) {
-        window.location.href = result.url;
+      if (result.success) {
+        alert(`🎉 ${result.message || 'Order placed successfully!'}`);
+        
+        // 2. Safely wipe temporary checkout metrics caches and reset view status rules cleanly
+        updateCachedCartState([]);
+        setCustomerName('');
+        setCustomerEmail('');
+        setShippingAddress('');
+        setPhoneNumber('');
+        setIsCartOpen(false);
       } else {
-        alert(`Checkout Error: ${result.details || result.error || 'Failed to retrieve transaction checkout link.'}`);
+        alert(`Checkout Error: ${result.details || result.error || 'Failed to process order profiles allocation.'}`);
       }
     } catch (err) {
-      console.error('Checkout error:', err);
-      alert('Failed to contact checkout server.');
+      console.error('Checkout execution exception logged:', err);
+      alert('Failed to connect with database checkout deployment services.');
     } finally {
       setCheckoutLoading(false);
     }
@@ -178,7 +204,7 @@ export default function Storefront() {
             Shopvella
           </span>
 
-          {/* SEARCH BAR UTILITY (FLUID INTERACTION RESPONSIVE FRAME) */}
+          {/* SEARCH BAR UTILITY */}
           <div className="mx-4 max-w-md flex-1 relative hidden sm:block">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-4 w-4 text-zinc-400">
@@ -212,7 +238,7 @@ export default function Storefront() {
         </div>
       </nav>
 
-      {/* MOBILE ONLY FLOATING SEARCH UNIT MODULE CONTAINER */}
+      {/* MOBILE ONLY FLOATING SEARCH UNIT */}
       <div className="w-full px-4 py-2 bg-white border-b border-zinc-200 block sm:hidden">
         <div className="relative w-full">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -255,7 +281,7 @@ export default function Storefront() {
           </div>
         </section>
 
-        {/* HIGHLY RESPONSIVE HORIZONTAL-SCROLL CATEGORY TABS SECTION */}
+        {/* CATEGORY TABS SECTION */}
         <section className="mt-8 mb-4 border-b border-zinc-200 pb-2">
           <div className="flex space-x-2 overflow-x-auto scrollbar-none touch-pan-x py-1 -mx-4 px-4 sm:mx-0 sm:px-0">
             {categoriesList.map((category) => {
@@ -421,61 +447,115 @@ export default function Storefront() {
                     <p className="text-sm font-medium">Your cart is currently empty</p>
                   </div>
                 ) : (
-                  <ul role="list" className="-my-6 divide-y divide-zinc-100">
-                    {cart.map((item) => (
-                      <li key={item.id} className="flex py-6">
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
-                          <img
-                            src={item.image_url || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600'}
-                            alt={item.name}
-                            className="h-full w-full object-cover object-center"
+                  <>
+                    <ul role="list" className="-my-6 divide-y divide-zinc-100">
+                      {cart.map((item) => (
+                        <li key={item.id} className="flex py-6">
+                          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
+                            <img
+                              src={item.image_url || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600'}
+                              alt={item.name}
+                              className="h-full w-full object-cover object-center"
+                            />
+                          </div>
+
+                          <div className="ml-4 flex flex-1 flex-col">
+                            <div>
+                              <div className="flex justify-between text-sm font-bold text-zinc-900">
+                                <h4 className="line-clamp-1">{item.name}</h4>
+                                <p className="ml-4">${(item.price * item.quantity).toFixed(2)}</p>
+                              </div>
+                              <p className="mt-1 text-xs text-zinc-500">${parseFloat(item.price).toFixed(2)} each</p>
+                            </div>
+                            
+                            {/* Native Quantity Control Handlers */}
+                            <div className="flex flex-1 items-end justify-between text-sm">
+                              <div className="flex items-center border border-zinc-200 rounded-md bg-white shadow-xs">
+                                <button
+                                  onClick={() => updateQuantity(item.id, -1)}
+                                  className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+                                  </svg>
+                                </button>
+                                <span className="px-3 py-1 text-xs font-bold text-zinc-800 bg-zinc-50 min-w-8 text-center select-none">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => updateQuantity(item.id, 1)}
+                                  className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                  </svg>
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={() => updateQuantity(item.id, -item.quantity)}
+                                className="font-medium text-xs text-red-600 hover:text-red-500 underline uppercase tracking-wider"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* CASH ON DELIVERY BILLING INFORMATION MODULE */}
+                    <div className="mt-12 border-t border-zinc-200 pt-6">
+                      <h3 className="text-xs font-black tracking-wider uppercase text-zinc-900 mb-4 flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-zinc-600">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124l-.083-1.332A4.864 4.864 0 0 0 18.614 10.5H15.75m-3 8.25h3m-3 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-13.5V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625V14.25m12-4.5V4.5m-3 5.25a3 3 0 0 1-3-3V4.5" />
+                        </svg>
+                        Delivery Information (COD)
+                      </h3>
+                      <div className="space-y-3.5">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Full Name</label>
+                          <input 
+                            type="text"
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            placeholder="John Doe"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all"
                           />
                         </div>
-
-                        <div className="ml-4 flex flex-1 flex-col">
-                          <div>
-                            <div className="flex justify-between text-sm font-bold text-zinc-900">
-                              <h4 className="line-clamp-1">{item.name}</h4>
-                              <p className="ml-4">${(item.price * item.quantity).toFixed(2)}</p>
-                            </div>
-                            <p className="mt-1 text-xs text-zinc-500">${parseFloat(item.price).toFixed(2)} each</p>
-                          </div>
-                          
-                          {/* Native Quantity Control Handlers */}
-                          <div className="flex flex-1 items-end justify-between text-sm">
-                            <div className="flex items-center border border-zinc-200 rounded-md bg-white shadow-xs">
-                              <button
-                                onClick={() => updateQuantity(item.id, -1)}
-                                className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-                                </svg>
-                              </button>
-                              <span className="px-3 py-1 text-xs font-bold text-zinc-800 bg-zinc-50 min-w-8 text-center select-none">
-                                {item.quantity}
-                              </span>
-                              <button
-                                onClick={() => updateQuantity(item.id, 1)}
-                                className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                </svg>
-                              </button>
-                            </div>
-
-                            <button
-                              onClick={() => updateQuantity(item.id, -item.quantity)}
-                              className="font-medium text-xs text-red-600 hover:text-red-500 underline uppercase tracking-wider"
-                            >
-                              Remove
-                            </button>
-                          </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Email Address</label>
+                          <input 
+                            type="email"
+                            value={customerEmail}
+                            onChange={(e) => setCustomerEmail(e.target.value)}
+                            placeholder="johndoe@example.com"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all"
+                          />
                         </div>
-                      </li>
-                    ))}
-                  </ul>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Phone Number</label>
+                          <input 
+                            type="tel"
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            placeholder="+1 (555) 000-0000"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Shipping Destination Address</label>
+                          <textarea 
+                            value={shippingAddress}
+                            onChange={(e) => setShippingAddress(e.target.value)}
+                            placeholder="Street Address, Suite, Apartment, City, State"
+                            rows="2"
+                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all resize-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 
@@ -486,7 +566,7 @@ export default function Storefront() {
                     <p>Subtotal</p>
                     <p>${cartSubtotal.toFixed(2)}</p>
                   </div>
-                  <p className="mt-0.5 text-xs text-zinc-500">Shipping and taxes calculated at checkout.</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">Free delivery nationwide via Cash on Delivery terms.</p>
                   <div className="mt-6">
                     <button
                       onClick={handleCheckout}
@@ -499,10 +579,10 @@ export default function Storefront() {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
-                          Securing Connection...
+                          Processing Cash order...
                         </span>
                       ) : (
-                        'Proceed to Checkout'
+                        'Confirm Order (Cash on Delivery)'
                       )}
                     </button>
                   </div>
