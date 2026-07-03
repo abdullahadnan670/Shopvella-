@@ -28,6 +28,12 @@ app.use(express.json()); // Global JSON parsing active for incoming payload stre
  * @route   GET /api/products
  * @desc    Fetch products supporting text search queries and category tags filtering
  */
+app.get('/api', (req, res) => {
+  res.status(200).json({ 
+    success: true, 
+    message: "Shopvella API Gateway is alive and healthy" 
+  });
+});
 app.get('/api/products', async (req, res) => {
   try {
     const { search, category } = req.query;
