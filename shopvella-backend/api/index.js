@@ -235,3 +235,4 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Production COD server running smoothly on port ${PORT}`);
 });
+module.exports = app;
