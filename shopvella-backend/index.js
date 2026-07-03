@@ -7,9 +7,8 @@ import { createClient } from '@supabase/supabase-js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Validate essential environment variables (Stripe validations securely extracted)
+// Validate essential environment variables
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
   console.error('CRITICAL ERROR: Missing SUPABASE_URL or SUPABASE_ANON_KEY in environment variables.');
   process.exit(1);
@@ -232,7 +231,13 @@ app.use((req, res) => {
   res.status(404).json({ success: false, error: 'Route configuration not discovered' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Production COD server running smoothly on port ${PORT}`);
-});
-module.exports = app;
+// Only start listening on a port if executing outside a serverless wrapper environment (Local Testing)
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Local development COD server active on port ${PORT}`);
+  });
+}
+
+// Industry Standard ES Module default export for seamless Vercel ingestion
+export default app;
