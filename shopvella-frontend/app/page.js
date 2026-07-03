@@ -39,8 +39,9 @@ export default function Storefront() {
           urlParams.append('category', activeCategory);
         }
 
-        const fetchUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/products';
-        const response = await fetch(`${fetchUrl}?${urlParams.toString()}`);
+        // Ensure we fall back safely, then cleanly append the exact endpoint path suffix
+const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const response = await fetch(`${baseApiUrl}/api/products?${urlParams.toString()}`);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
