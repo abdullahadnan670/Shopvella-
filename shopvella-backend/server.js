@@ -21,7 +21,14 @@ const supabase = createClient(
 );
 
 // Global Middleware Configuration Engine
-app.use(cors());
+// UPDATED: Configured to explicitly accept requests from your live Vercel URL
+app.use(cors({
+  origin: ['https://shopvella.vercel.app', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 /**
@@ -48,7 +55,7 @@ app.get('/api/products', async (req, res) => {
       databaseQuery = databaseQuery.ilike('name', `%${search.trim()}%`);
     }
 
-    if (category && category.trim() !== '' && category.trim() !== 'All Drops') {
+    if (category && category.trim() !== '' && category.trim() !== 'All Drops' && category.trim() !== 'All Cases') {
       databaseQuery = databaseQuery.ilike('description', `%${category.trim()}%`);
     }
 
@@ -179,7 +186,7 @@ app.post('/api/orders', async (req, res) => {
       orderId: rpcExecutionResult.order_id,
       billingSummary: {
         totalChargedAmount: parseFloat(certifiedServerCalculatedTotal.toFixed(2)),
-        unitsShippedCount: items.reduce((accumulation, directRecord) => accumulation + parseInt(directRecord.quantity, 10), 0)
+          unitsShippedCount: items.reduce((accumulation, directRecord) => accumulation + parseInt(directRecord.quantity, 10), 0)
       }
     });
   } catch (runtimeEndpointError) {
@@ -190,111 +197,7 @@ app.post('/api/orders', async (req, res) => {
     });
   }
 });
-/**
- * @route   POST /api/orders
- * @desc    Process direct Cash on Delivery (COD) orders without a payment gateway
- */
-app.post('/api/orders', async (req, res) => {
-  try {
-    const { items, customerDetails } = req.body;
 
-    // 1. Structural Validations
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ success: false, error: 'The "items" field is required and cannot be empty.' });
-    }
-    if (!customerDetails || !customerDetails.name || !customerDetails.email || !customerDetails.shippingAddress || !customerDetails.phoneNumber) {
-      return res.status(400).json({ success: false, error: 'Missing customer delivery details.' });
-    }
-
-    const itemIds = items.map(item => item.id);
-
-    // 2. Fetch match validation records from database
-    const { data: dbProducts, error: lookupError } = await supabase
-      .from('products')
-      .select('id, price, name, stock_quantity')
-      .in('id', itemIds);
-
-    if (lookupError || !dbProducts || dbProducts.length === 0) {
-      return res.status(400).json({ success: false, error: 'Database lookup failed during validation.' });
-    }
-
-    const productMap = new Map(dbProducts.map(p => [p.id, p]));
-    let totalAmount = 0;
-
-    // 3. Stock Level Verification & Total Calculation
-    for (const clientItem of items) {
-      const dbProduct = productMap.get(clientItem.id);
-      if (!dbProduct) {
-        return res.status(400).json({ success: false, error: `Product ID ${clientItem.id} not found.` });
-      }
-      if (dbProduct.stock_quantity < clientItem.quantity) {
-        return res.status(400).json({
-          success: false,
-          error: 'Out of Stock Protection',
-          details: `Requested quantity for "${dbProduct.name}" exceeds available stock.`
-        });
-      }
-      totalAmount += dbProduct.price * clientItem.quantity;
-    }
-
-    // 4. Create Main Order Entry in public.orders
-    // Note: Make sure your Supabase orders table has columns for name, address, and phone if you wish to store them!
-    const { data: orderRecord, error: orderError } = await supabase
-      .from('orders')
-      .insert([
-        {
-          customer_email: customerDetails.email.trim(),
-          total_amount: parseFloat(totalAmount.toFixed(2)),
-          status: 'pending', // Pending payment/delivery completion
-          stripe_checkout_id: 'COD_ORDER' // Flag indicating it bypasses Stripe
-        }
-      ])
-      .select()
-      .single();
-
-    if (orderError) throw orderError;
-
-    // 5. Loop to commit items mapping and inventory balance reductions
-    for (const clientItem of items) {
-      const dbProduct = productMap.get(clientItem.id);
-
-      // Insert item line mappings
-      const { error: itemError } = await supabase
-        .from('order_items')
-        .insert([
-          {
-            order_id: orderRecord.id,
-            product_id: clientItem.id,
-            quantity: clientItem.quantity
-          }
-        ]);
-
-      if (itemError) throw itemError;
-
-      // Deduct warehouse system balances safely
-      const computedNewStock = Math.max(0, dbProduct.stock_quantity - clientItem.quantity);
-      const { error: updateError } = await supabase
-        .from('products')
-        .update({ stock_quantity: computedNewStock })
-        .eq('id', clientItem.id);
-
-      if (updateError) throw updateError;
-    }
-
-    return res.status(201).json({
-      success: true,
-      message: 'Your Cash on Delivery order has been placed successfully!'
-    });
-
-  } catch (err) {
-    console.error('❌ COD Checkout backend failure:', err.message);
-    return res.status(500).json({
-      success: false,
-      error: 'Internal Server Error',
-      details: err.message
-    });
-  }
-});
 // Fallback error-catching structure mapping routes handles route structures missing patterns definitions
 app.use((req, res) => {
   return res.status(404).json({
@@ -304,7 +207,7 @@ app.use((req, res) => {
   });
 });
 
-// Conditional local port listeners blocks to support local testing workflows safely without interfering with Vercel architecture runtime functions structures ingestion engines
+// Conditional local port listeners blocks to support local testing workflows safely
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const LOCAL_DEV_RUN_PORT = process.env.PORT || 5000;
   app.listen(LOCAL_DEV_RUN_PORT, () => {
