@@ -24,6 +24,14 @@ export default function Storefront() {
   const [shippingAddress, setShippingAddress] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  // Form Validation Errors State
+  const [formErrors, setFormErrors] = useState({
+    name: false,
+    email: false,
+    shippingAddress: false,
+    phoneNumber: false
+  });
+
   // Explicitly requested category list configuration
   const categoriesList = ['All Cases'];
 
@@ -42,7 +50,7 @@ export default function Storefront() {
           urlParams.append('category', activeCategory);
         }
 
-        const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://shopvella-backend.vercel.app';
         const response = await fetch(`${baseApiUrl}/api/products?${urlParams.toString()}`);
         
         if (!response.ok) {
@@ -135,8 +143,18 @@ export default function Storefront() {
   };
 
   const handleCheckout = async () => {
-    if (!customerName.trim() || !customerEmail.trim() || !shippingAddress.trim() || !phoneNumber.trim()) {
-      alert('Please fully fill out all shipping and contact details before processing your Cash on Delivery order.');
+    // Check fields individually and assign validation state
+    const errors = {
+      name: !customerName.trim(),
+      email: !customerEmail.trim(),
+      shippingAddress: !shippingAddress.trim(),
+      phoneNumber: !phoneNumber.trim()
+    };
+
+    setFormErrors(errors);
+
+    // If any field is true (missing info), block checkout execution
+    if (Object.values(errors).some(Boolean)) {
       return;
     }
 
@@ -157,7 +175,7 @@ export default function Storefront() {
         }
       };
 
-      const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://shopvella-backend.vercel.app';
       const response = await fetch(`${baseApiUrl}/api/orders`, {
         method: 'POST',
         headers: {
@@ -177,11 +195,14 @@ export default function Storefront() {
         setIsCartOpen(false);
         router.push('/success');
       } else {
-        alert(`Checkout Error: ${result.details || result.error || 'Failed to process order profiles allocation.'}`);
+        // Requirement met: If backend rejects order, push straight to cancel page
+        console.error('Checkout error detail:', result.error || result.details);
+        router.push('/cancel');
       }
     } catch (err) {
+      // Requirement met: If network or operational code crash occurs, redirect to cancel page
       console.error('Checkout execution exception logged:', err);
-      alert('Failed to connect with database checkout deployment services.');
+      router.push('/cancel');
     } finally {
       setCheckoutLoading(false);
     }
@@ -414,7 +435,7 @@ export default function Storefront() {
         </main>
       </div>
 
-      {/* PREMIUM, SEMANTIC WEBSITE FOOTER */}
+      {/* SEMANTIC WEBSITE FOOTER */}
       <footer className="w-full bg-white border-t border-zinc-200 mt-auto">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           
@@ -617,40 +638,72 @@ export default function Storefront() {
                           <input 
                             type="text"
                             value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
+                            onChange={(e) => {
+                              setCustomerName(e.target.value);
+                              if(e.target.value.trim()) setFormErrors(prev => ({...prev, name: false}));
+                            }}
                             placeholder="John Doe"
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all"
+                            className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all ${
+                              formErrors.name ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
+                            }`}
                           />
+                          {formErrors.name && (
+                            <p className="text-[10px] text-red-500 font-semibold mt-1">Full Name is required.</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Email Address</label>
                           <input 
                             type="email"
                             value={customerEmail}
-                            onChange={(e) => setCustomerEmail(e.target.value)}
+                            onChange={(e) => {
+                              setCustomerEmail(e.target.value);
+                              if(e.target.value.trim()) setFormErrors(prev => ({...prev, email: false}));
+                            }}
                             placeholder="johndoe@example.com"
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all"
+                            className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all ${
+                              formErrors.email ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
+                            }`}
                           />
+                          {formErrors.email && (
+                            <p className="text-[10px] text-red-500 font-semibold mt-1">Email Address is required.</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Phone Number</label>
                           <input 
                             type="tel"
                             value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            onChange={(e) => {
+                              setPhoneNumber(e.target.value);
+                              if(e.target.value.trim()) setFormErrors(prev => ({...prev, phoneNumber: false}));
+                            }}
                             placeholder="+1 (555) 000-0000"
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all"
+                            className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all ${
+                              formErrors.phoneNumber ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
+                            }`}
                           />
+                          {formErrors.phoneNumber && (
+                            <p className="text-[10px] text-red-500 font-semibold mt-1">Phone Number is required.</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Shipping Destination Address</label>
                           <textarea 
                             value={shippingAddress}
-                            onChange={(e) => setShippingAddress(e.target.value)}
+                            onChange={(e) => {
+                              setShippingAddress(e.target.value);
+                              if(e.target.value.trim()) setFormErrors(prev => ({...prev, shippingAddress: false}));
+                            }}
                             placeholder="Street Address, Suite, Apartment, City, State"
                             rows="2"
-                            className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all resize-none"
+                            className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all resize-none ${
+                              formErrors.shippingAddress ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
+                            }`}
                           />
+                          {formErrors.shippingAddress && (
+                            <p className="text-[10px] text-red-500 font-semibold mt-1">Shipping Destination Address is required.</p>
+                          )}
                         </div>
                       </div>
                     </div>
