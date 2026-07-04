@@ -35,7 +35,7 @@ app.use(express.json());
  * @route   GET /api
  * @desc    Global API base deployment status tracking interface layout check route handler
  */
-app.get('/api', (req, res) => {
+app.get('/', (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Shopvella Production Architecture API Gateway is online and active."
@@ -46,7 +46,7 @@ app.get('/api', (req, res) => {
  * @route   GET /api/products
  * @desc    Fetch products supporting complex text matching queries and filtering mechanics
  */
-app.get('/api/products', async (req, res) => {
+app.get('/products', async (req, res) => {
   try {
     const { search, category } = req.query;
     let databaseQuery = supabase.from('products').select('*');
@@ -87,7 +87,7 @@ app.get('/api/products', async (req, res) => {
  * @route   POST /api/orders
  * @desc    Server-validated secure checkout pipeline executing custom database RPC routines atomically
  */
-app.post('/api/orders', async (req, res) => {
+app.post('/orders', async (req, res) => {
   try {
     const { items, customerDetails } = req.body;
 
