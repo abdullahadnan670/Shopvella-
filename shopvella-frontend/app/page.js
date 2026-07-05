@@ -384,8 +384,9 @@ export default function Storefront() {
                                   Units: {productItem.stock_quantity}
                                 </p>
                               </div>
+                              {/* Swapped currency token mapping structure directly to PKR */}
                               <p className="text-xs md:text-sm font-mono font-black text-zinc-900 shrink-0 mt-0.5 sm:mt-0">
-                                ${Number(productItem.price || 0).toFixed(2)}
+                                Rs. {Number(productItem.price || 0).toLocaleString('en-PK')}
                               </p>
                             </div>
                           </div>
