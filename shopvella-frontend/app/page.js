@@ -3,28 +3,31 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+import ProductDetail from './ProductDetail';
+import CartDrawer from './CartDrawer';
+
 export default function Storefront() {
   const router = useRouter();
 
-  // State Management
+  // Core Application State Matrix
   const [products, setProducts] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
   
-  // Search and Category Parameters State Control
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All Cases');
 
-  // Delivery Checkout Form Input Parameters State Mapping Control Layers
+  // COD Checkout Core Customer Delivery Registration Inputs
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
-  // Form Validation Errors State
   const [formErrors, setFormErrors] = useState({
     name: false,
     email: false,
@@ -32,10 +35,7 @@ export default function Storefront() {
     phoneNumber: false
   });
 
-  // Explicitly requested category list configuration
-  const categoriesList = ['All Cases'];
-
-  // Synced state fetching logic hook map
+  // Fetch updated catalog dataset matching the new schema specifications
   useEffect(() => {
     const fetchFilteredCatalog = async () => {
       try {
@@ -46,26 +46,29 @@ export default function Storefront() {
         if (searchQuery.trim() !== '') {
           urlParams.append('search', searchQuery.trim());
         }
-        if (activeCategory !== 'All Cases') {
-          urlParams.append('category', activeCategory);
-        }
-
+        
         const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://shopvella-backend.vercel.app';
         const response = await fetch(`${baseApiUrl}/api/products?${urlParams.toString()}`);
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`HTTP grid network sync exception code response: status ${response.status}`);
         }
         
         const result = await response.json();
         
         if (result.success) {
-          setProducts(result.data);
+          setProducts(result.data || []);
+          
+          // Re-sync active view references if database catalog reloads
+          if (selectedProduct) {
+            const reSyncedInstance = (result.data || []).find(p => p.id === selectedProduct.id);
+            if (reSyncedInstance) setSelectedProduct(reSyncedInstance);
+          }
         } else {
-          throw new Error(result.error || 'Failed to fetch products');
+          throw new Error(result.error || 'Database lookup anomalies caught.');
         }
       } catch (err) {
-        console.error('Error fetching filtered database items:', err);
+        console.error('Critical database read operations logging error:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -77,29 +80,34 @@ export default function Storefront() {
     }, 350);
 
     return () => clearTimeout(delayDebounceInstance);
-  }, [searchQuery, activeCategory]);
+  }, [searchQuery]);
 
-  // Load persistence configurations from local browser states on component assembly
+  // Sync cache records from localStorage on initial run
   useEffect(() => {
     const savedCartData = localStorage.getItem('shopvella_cart_cache');
     if (savedCartData) {
       try {
         setCart(JSON.parse(savedCartData));
       } catch (e) {
-        console.error('Failed to parse cart local storage tracking data:', e);
+        console.error('Failed to parse cached local storage cart elements:', e);
       }
     }
   }, []);
+
+  const triggerToastNotification = (message) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const updateCachedCartState = (updatedCartStructure) => {
     setCart(updatedCartStructure);
     localStorage.setItem('shopvella_cart_cache', JSON.stringify(updatedCartStructure));
   };
 
-  // Cart Actions
+  // Funnel Option A: Quiet background injection logic layer
   const addToCart = (product) => {
     if (product.stock_quantity <= 0) {
-      alert('This ultra-premium design statement is completely sold out.');
+      triggerToastNotification('Selection configuration sold out.');
       return;
     }
 
@@ -108,7 +116,7 @@ export default function Storefront() {
 
     if (existingItem) {
       if (existingItem.quantity >= product.stock_quantity) {
-        alert(`Maximum allocated item collection capability reached (${product.stock_quantity} units available).`);
+        triggerToastNotification(`Maximum capacity limit hit (${product.stock_quantity} units available).`);
         return;
       }
       newCartItems = cart.map((item) =>
@@ -119,6 +127,19 @@ export default function Storefront() {
     }
     
     updateCachedCartState(newCartItems);
+    triggerToastNotification(`"${product.name}" injected safely into background cart.`);
+  };
+
+  // Funnel Option B: Fast-Track conversion bypass logic shortcut
+  const fastTrackBuyNow = (product) => {
+    if (product.stock_quantity <= 0) {
+      triggerToastNotification('Selection model configurations sold out.');
+      return;
+    }
+    // Isolate context payload completely to this item array
+    const fastTrackItem = [{ ...product, quantity: 1 }];
+    updateCachedCartState(fastTrackItem);
+    // Force open customer delivery modal registration sheets instantly
     setIsCartOpen(true);
   };
 
@@ -127,7 +148,7 @@ export default function Storefront() {
     if (!targetProductInCart) return;
 
     if (amount > 0 && targetProductInCart.quantity >= targetProductInCart.stock_quantity) {
-      alert('Cannot exceed dynamic inventory parameters allocations built inside warehouse systems.');
+      triggerToastNotification('Cannot exceed real-time tracking warehouse metrics.');
       return;
     }
 
@@ -143,7 +164,6 @@ export default function Storefront() {
   };
 
   const handleCheckout = async () => {
-    // Check fields individually and assign validation state
     const errors = {
       name: !customerName.trim(),
       email: !customerEmail.trim(),
@@ -153,10 +173,7 @@ export default function Storefront() {
 
     setFormErrors(errors);
 
-    // If any field is true (missing info), block checkout execution
-    if (Object.values(errors).some(Boolean)) {
-      return;
-    }
+    if (Object.values(errors).some(Boolean)) return;
 
     try {
       setCheckoutLoading(true);
@@ -178,9 +195,7 @@ export default function Storefront() {
       const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://shopvella-backend.vercel.app';
       const response = await fetch(`${baseApiUrl}/api/orders`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -195,13 +210,10 @@ export default function Storefront() {
         setIsCartOpen(false);
         router.push('/success');
       } else {
-        // Requirement met: If backend rejects order, push straight to cancel page
-        console.error('Checkout error detail:', result.error || result.details);
         router.push('/cancel');
       }
     } catch (err) {
-      // Requirement met: If network or operational code crash occurs, redirect to cancel page
-      console.error('Checkout execution exception logged:', err);
+      console.error('Checkout processing loop anomaly:', err);
       router.push('/cancel');
     } finally {
       setCheckoutLoading(false);
@@ -209,24 +221,29 @@ export default function Storefront() {
   };
 
   const totalCartItems = cart.reduce((total, item) => total + item.quantity, 0);
-  const cartSubtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans antialiased flex flex-col justify-between selection:bg-black selection:text-white">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans antialiased flex flex-col justify-between selection:bg-black selection:text-white relative">
       
-      {/* WRAPPER FOR NAVIGATION AND MAIN CONTENT */}
+      {/* Dynamic Notifications System Overlay */}
+      {toastMessage && (
+        <div className="fixed bottom-6 left-6 z-50 bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-widest px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-2">
+          <span className="text-amber-400">⚡</span> {toastMessage}
+        </div>
+      )}
+
       <div>
-        {/* STICKY NAVIGATION BAR */}
+        {/* Global Navigation System */}
         <nav className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <span 
-              onClick={() => { setSearchQuery(''); setActiveCategory('All Cases'); }}
-              className="text-xl font-black tracking-tight uppercase text-zinc-900 cursor-pointer select-none shrink-0"
+              onClick={() => { setSelectedProduct(null); setSearchQuery(''); }}
+              className="text-xl font-black tracking-tight uppercase text-zinc-900 cursor-pointer select-none"
             >
               Shopvella
             </span>
 
-            {/* SEARCH BAR UTILITY */}
+            {/* Custom Targeted Placeholder Input Component Grid */}
             <div className="mx-4 max-w-md flex-1 relative hidden sm:block">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-4 w-4 text-zinc-400">
@@ -237,22 +254,20 @@ export default function Storefront() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="search cases"
+                placeholder="search accessories..."
                 className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-1.5 pl-9 pr-4 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all"
               />
             </div>
 
-            {/* Cart Icon Button with Counter Badge */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="group relative flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white transition-all hover:bg-zinc-50 active:scale-95 shrink-0"
-              aria-label="Open Cart"
+              className="group relative flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white transition-all hover:bg-zinc-50 shrink-0"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-5 w-5 text-zinc-700 group-hover:text-black">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
               </svg>
               {totalCartItems > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-bold text-white ring-2 ring-white animate-in zoom-in duration-200">
+                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black text-[10px] font-bold text-white ring-2 ring-white">
                   {totalCartItems}
                 </span>
               )}
@@ -260,7 +275,7 @@ export default function Storefront() {
           </div>
         </nav>
 
-        {/* MOBILE ONLY FLOATING SEARCH UNIT */}
+        {/* Mobile Input Framework Layer */}
         <div className="w-full px-4 py-2 bg-white border-b border-zinc-200 block sm:hidden">
           <div className="relative w-full">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -272,478 +287,146 @@ export default function Storefront() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="search cases"
-              className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-2 pl-9 pr-4 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none transition-all"
+              placeholder="search accessories..."
+              className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-2 pl-9 pr-4 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none"
             />
           </div>
         </div>
 
-        <main className="mx-auto max-w-7xl px-4 pb-24 sm:px-6 lg:px-8">
-          
-          {/* HERO PROMOTIONAL BANNER */}
-          <section className="my-6 overflow-hidden rounded-2xl bg-zinc-900 text-white shadow-lg">
-            <div className="relative px-6 py-16 sm:px-12 sm:py-20 lg:px-16 lg:py-24 flex flex-col items-center text-center">
-              <span className="mb-3 text-xs font-bold tracking-widest uppercase text-amber-400">
-                ⚡ Premium Cases Collection
-              </span>
-              <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl uppercase">
-                PREMIUM PHONE CASES.
+        {/* Premium Minimalist Black Banner Promo Hero */}
+        {!selectedProduct && (
+          <div className="w-full bg-black text-white py-14 px-4 text-center border-b border-zinc-800">
+            <div className="max-w-3xl mx-auto space-y-3">
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tighter uppercase font-sans">
+                PREMIUM TECH ACCESSORIES.
               </h1>
-              <p className="mt-4 max-w-md text-sm text-zinc-400 sm:text-base">
+              <p className="text-xs sm:text-sm text-zinc-400 font-normal leading-relaxed tracking-wide max-w-2xl mx-auto">
                 Explore ultra-reinforced custom defense layouts explicitly engineered for complete device protection. Zero compromises on style aesthetics.
               </p>
-              <div className="mt-8 flex gap-4">
-                <button 
-                  onClick={() => document.getElementById('shop-collection').scrollIntoView({ behavior: 'smooth' })} 
-                  className="rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-wider text-black shadow-md hover:bg-zinc-100 transition active:scale-95"
-                >
-                  Shop Cases
-                </button>
-              </div>
             </div>
-          </section>
+          </div>
+        )}
 
-          {/* CATEGORY TABS SECTION */}
-          <section className="mt-8 mb-4 border-b border-zinc-200 pb-2">
-            <div className="flex space-x-2 overflow-x-auto scrollbar-none touch-pan-x py-1 -mx-4 px-4 sm:mx-0 sm:px-0">
-              {categoriesList.map((category) => {
-                const isSelected = activeCategory === category;
-                return (
-                  <button
-                    key={category}
-                    onClick={() => setActiveCategory(category)}
-                    className={`rounded-full px-5 py-2 text-xs font-bold tracking-wider uppercase whitespace-nowrap transition-all duration-200 ${
-                      isSelected
-                        ? 'bg-black text-white shadow-sm scale-102'
-                        : 'bg-white text-zinc-600 border border-zinc-200 hover:border-zinc-400 hover:text-black'
-                    }`}
-                  >
-                    {category}
-                  </button>
-                );
-              })}
+        {/* Main Infrastructure Processing Block Container */}
+        <main className="mx-auto max-w-7xl px-4 pb-24 sm:px-6 lg:px-8 mt-8">
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-24 text-zinc-400">
+              <p className="text-xs font-bold tracking-widest uppercase animate-pulse">Syncing Accessories Infrastructure Grid...</p>
             </div>
-          </section>
+          )}
 
-          {/* DYNAMIC PRODUCT COLLECTION */}
-          <section id="shop-collection" className="mt-6 scroll-mt-20">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div>
-                <h2 className="text-xl font-bold tracking-tight text-zinc-900 sm:text-2xl">
-                  {activeCategory} Listing
-                </h2>
-                <p className="text-xs text-zinc-500 mt-0.5">Refreshed in real-time based on selection matrix parameters</p>
-              </div>
-              {searchQuery !== '' && (
-                <span className="inline-flex items-center rounded-md bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-800 self-start sm:self-center">
-                  Search matches for "{searchQuery}"
-                </span>
+          {error && (
+            <div className="my-12 rounded-xl border border-red-200 bg-red-50 p-6 text-center text-red-800 max-w-xl mx-auto text-xs">
+              <p className="font-bold uppercase tracking-wide">Sync Fault Encountered</p>
+              <p className="mt-1 opacity-80">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && (
+            <>
+              {selectedProduct ? (
+                <ProductDetail 
+                  product={selectedProduct}
+                  onBack={() => setSelectedProduct(null)}
+                  addToCart={addToCart}
+                  fastTrackBuyNow={fastTrackBuyNow}
+                />
+              ) : (
+                <div>
+                     <div className="mb-6 border-b border-zinc-200 pb-3">
+                     <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
+                       PREMIUM EDITIONS ({products.length})
+                      </h2>
+                      </div>
+                  
+                  <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
+                    {products.map((productItem) => {
+                      // Check image_urls arrays securely fallback to empty structural loops safely
+                      const imageryArray = productItem.image_urls || [];
+                      const directSourceThumbnail = imageryArray[0] || '';
+
+                      return (
+                        <div 
+                          key={productItem.id} 
+                          onClick={() => setSelectedProduct(productItem)}
+                          className="group cursor-pointer flex flex-col justify-between bg-white border border-zinc-200 rounded-2xl overflow-hidden p-4 shadow-sm hover:shadow-md transition-all duration-300"
+                        >
+                          <div>
+                            <div className="aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 relative">
+                              {directSourceThumbnail ? (
+                                <img
+                                  src={directSourceThumbnail}
+                                  alt={productItem.name}
+                                  className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-400 uppercase font-mono">No Active Imagery</div>
+                              )}
+                              
+                              {productItem.stock_quantity <= 0 && (
+                                <div className="absolute inset-0 bg-white/85 backdrop-blur-[1px] flex items-center justify-center">
+                                  <span className="px-3 py-1 bg-black text-[9px] text-white font-bold uppercase tracking-widest rounded-full">SOLDOUT</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="mt-4 flex items-start justify-between gap-2">
+                              <div>
+                                <h3 className="text-sm font-bold text-zinc-900 tracking-tight group-hover:text-zinc-600 transition-colors">
+                                  {productItem.name}
+                                </h3>
+                                <p className="mt-1 text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
+                                  Units Available: {productItem.stock_quantity}
+                                </p>
+                              </div>
+                              <p className="text-sm font-mono font-black text-zinc-900 shrink-0">
+                                ${Number(productItem.price || 0).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs font-bold uppercase tracking-wide text-zinc-500 group-hover:text-black transition-colors">
+                          <span>VIEW DETAILS →</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-4 w-4 transform group-hover:translate-x-1 transition-transform">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                          </svg>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-            </div>
-
-            {/* Loading State */}
-            {loading && (
-              <div className="flex flex-col items-center justify-center py-24 text-zinc-500">
-                <svg className="animate-spin h-8 w-8 text-black mb-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <p className="text-xs font-medium tracking-wide uppercase">Recompiling live query layers...</p>
-              </div>
-            )}
-
-            {/* Error State */}
-            {error && (
-              <div className="my-12 rounded-xl border border-red-200 bg-red-50 p-6 text-center text-red-800">
-                <p className="font-bold">Failed to synchronize products</p>
-                <p className="text-xs mt-1 opacity-80">{error}</p>
-              </div>
-            )}
-
-            {/* Empty Catalog Array State */}
-            {!loading && !error && products.length === 0 && (
-              <div className="my-16 rounded-xl border border-zinc-200 bg-white p-12 text-center text-zinc-400">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="mx-auto h-10 w-10 text-zinc-300 mb-2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.604 10.604Z" />
-                </svg>
-                <p className="text-sm font-medium text-zinc-800">No items match parameters criteria</p>
-                <p className="text-xs mt-0.5">Modify adjustments or structural phrases inputs to discover alternative pieces.</p>
-              </div>
-            )}
-
-            {/* Responsive Product Grid */}
-            {!loading && !error && products.length > 0 && (
-              <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 md:grid-cols-3 xl:gap-x-8">
-                {products.map((product) => {
-                  const isSoldOut = product.stock_quantity <= 0;
-                  return (
-                    <div key={product.id} className="group relative flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 transition-all hover:shadow-md">
-                      
-                      {/* Image Frame Container */}
-                      <div className="aspect-square w-full overflow-hidden rounded-lg bg-zinc-100 group-hover:opacity-90 relative">
-                        <img
-                          src={product.image_url || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600'}
-                          alt={product.name}
-                          className={`h-full w-full object-cover object-center transition duration-300 ${isSoldOut ? 'grayscale blur-xs' : ''}`}
-                        />
-                        {isSoldOut && (
-                          <span className="absolute left-3 top-3 rounded bg-zinc-900 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow">
-                            Sold Out
-                        </span>
-                        )}
-                        {!isSoldOut && product.stock_quantity <= 5 && (
-                          <span className="absolute left-3 top-3 rounded bg-amber-500 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white shadow animate-pulse">
-                            Low Stock ({product.stock_quantity})
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Product Info Metadata */}
-                      <div className="mt-4 flex flex-1 flex-col justify-between">
-                        <div>
-                          <h3 className="text-sm font-bold text-zinc-900 group-hover:text-indigo-600 transition">
-                            {product.name}
-                          </h3>
-                          <p className="mt-1 text-xs text-zinc-500 line-clamp-2">
-                            {product.description || 'Premium design architecture made for everyday functional expression.'}
-                          </p>
-                        </div>
-                        
-                        <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between">
-                          <span className="text-base font-black text-zinc-900">
-                            ${parseFloat(product.price).toFixed(2)}
-                          </span>
-                          <button
-                            onClick={() => addToCart(product)}
-                            disabled={isSoldOut}
-                            className={`rounded-lg px-4 py-2 text-xs font-bold text-white transition active:scale-95 ${
-                              isSoldOut 
-                                ? 'bg-zinc-200 text-zinc-400 cursor-not-allowed active:scale-100' 
-                                : 'bg-black hover:bg-zinc-800'
-                            }`}
-                          >
-                            {isSoldOut ? 'Out of Stock' : 'Add to Cart'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+            </>
+          )}
         </main>
       </div>
 
-      {/* SEMANTIC WEBSITE FOOTER */}
       <footer className="w-full bg-white border-t border-zinc-200 mt-auto">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          
-          {/* Main Footer Layout Content Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8">
-            
-            {/* Column 1: Brand Identity & Trust Infrastructure Metrics */}
-            <div className="md:col-span-5 flex flex-col justify-between space-y-6">
-              <div>
-                <span className="text-2xl font-black tracking-tighter uppercase text-zinc-900 select-none">
-                  SHOPVELLA
-                </span>
-                <p className="mt-2 text-xs text-zinc-500 max-w-sm leading-relaxed">
-                  Engineered with premium, impact-resistant protection architectures that safeguard modern mobile endpoints with an understated aesthetic profile.
-                </p>
-              </div>
-              
-              {/* Trust Badges */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold tracking-wide text-zinc-900">
-                  <span className="text-zinc-950">⚡</span>
-                  CASH ON DELIVERY NATIONWIDE
-                </div>
-                <div className="flex items-center gap-2 text-xs font-bold tracking-wide text-zinc-900">
-                  <span className="text-zinc-950">📦</span>
-                  FREE SHIPPING & SECURE INSPECTION
-                </div>
-              </div>
-            </div>
-
-            {/* Columns 2 & 3: Customer Care Navigation Links */}
-            <div className="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-8">
-              
-              {/* Care Column */}
-              <div>
-                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">
-                  Customer Care
-                </h4>
-                <ul className="space-y-2.5">
-                  <li>
-                    <a href="#shipping" className="text-xs font-medium text-zinc-600 hover:text-black transition">
-                      Shipping Policies
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#cod" className="text-xs font-medium text-zinc-600 hover:text-black transition">
-                      Cash on Delivery Guidelines
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Connections Support Column */}
-              <div>
-                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">
-                  Support Terminal
-                </h4>
-                <ul className="space-y-2.5">
-                  <li>
-                    <a 
-                      href="https://wa.me/YOUR_PHONE_NUMBER" 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition"
-                    >
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-                      WhatsApp Live Line
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Minimalist Corporate Column */}
-              <div className="col-span-2 sm:col-span-1">
-                <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">
-                  Architecture
-                </h4>
-                <p className="text-[11px] text-zinc-400 font-mono leading-normal">
-                  V.2.6 // SECURE LAYERS<br />
-                  ENCRYPTED ORDER ROUTING<br />
-                  WAREHOUSE LOCK 04
-                </p>
-              </div>
-
-            </div>
-          </div>
-
-          {/* Bottom Meta Bar Section */}
-          <div className="pt-6 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-[11px] text-zinc-400 text-center sm:text-left">
-              &copy; 2026 Shopvella. All rights reserved. Registered logistics operations in effect.
-            </p>
-            <div className="flex gap-4 text-[11px] font-medium text-zinc-400">
-              <a href="#terms" className="hover:text-black transition">Terms of Use</a>
-              <a href="#privacy" className="hover:text-black transition">Privacy Regulations</a>
-            </div>
-          </div>
-
+        <div className="mx-auto max-w-7xl px-4 py-8 text-center sm:text-left sm:flex sm:items-center sm:justify-between text-[11px] text-zinc-400">
+          <p>&copy; 2026 Shopvella Platform. Tech Accessories Defense Systems Matrix Operations.</p>
+          <p className="mt-2 sm:mt-0 font-mono tracking-tight uppercase">V2.8 // Turbopack Core</p>
         </div>
       </footer>
 
-      {/* SLIDE-OUT SIDEBAR SHOPPING CART DRAWER */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true">
-          <div 
-            className="absolute inset-0 bg-zinc-900/40 backdrop-blur-xs transition-opacity" 
-            onClick={() => setIsCartOpen(false)}
-          />
-
-          <div className="absolute inset-y-0 right-0 flex max-w-full pl-10">
-            <div className="w-screen max-w-md transform bg-white shadow-2xl transition-all flex flex-col h-full">
-              
-              <div className="flex items-center justify-between px-4 py-6 sm:px-6 border-b border-zinc-100">
-                <h2 className="text-lg font-bold text-zinc-900">Shopping Cart</h2>
-                <button
-                  onClick={() => setIsCartOpen(false)}
-                  className="rounded-md text-zinc-400 hover:text-zinc-500 p-1 hover:bg-zinc-100 transition"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-6 w-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-                {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-64 text-zinc-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="h-12 w-12 mb-2 stroke-zinc-300">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                    </svg>
-                    <p className="text-sm font-medium">Your cart is currently empty</p>
-                  </div>
-                ) : (
-                  <>
-                    <ul role="list" className="-my-6 divide-y divide-zinc-100">
-                      {cart.map((item) => (
-                        <li key={item.id} className="flex py-6">
-                          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
-                            <img
-                              src={item.image_url || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600'}
-                              alt={item.name}
-                              className="h-full w-full object-cover object-center"
-                            />
-                          </div>
-
-                          <div className="ml-4 flex flex-1 flex-col">
-                            <div>
-                              <div className="flex justify-between text-sm font-bold text-zinc-900">
-                                <h4 className="line-clamp-1">{item.name}</h4>
-                                <p className="ml-4">${(item.price * item.quantity).toFixed(2)}</p>
-                              </div>
-                              <p className="mt-1 text-xs text-zinc-500">${parseFloat(item.price).toFixed(2)} each</p>
-                            </div>
-                            
-                            <div className="flex flex-1 items-end justify-between text-sm">
-                              <div className="flex items-center border border-zinc-200 rounded-md bg-white shadow-xs">
-                                <button
-                                  onClick={() => updateQuantity(item.id, -1)}
-                                  className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-                                  </svg>
-                                </button>
-                                <span className="px-3 py-1 text-xs font-bold text-zinc-800 bg-zinc-50 min-w-8 text-center select-none">
-                                  {item.quantity}
-                                </span>
-                                <button
-                                  onClick={() => updateQuantity(item.id, 1)}
-                                  className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                  </svg>
-                                </button>
-                              </div>
-
-                              <button
-                                onClick={() => updateQuantity(item.id, -item.quantity)}
-                                className="font-medium text-xs text-red-600 hover:text-red-500 underline uppercase tracking-wider"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <div className="mt-12 border-t border-zinc-200 pt-6">
-                      <h3 className="text-xs font-black tracking-wider uppercase text-zinc-900 mb-4 flex items-center gap-1.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-zinc-600">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124l-.083-1.332A4.864 4.864 0 0 0 18.614 10.5H15.75m-3 8.25h3m-3 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-13.5V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625V14.25m12-4.5V4.5m-3 5.25a3 3 0 0 1-3-3V4.5" />
-                        </svg>
-                        Delivery Information (COD)
-                      </h3>
-                      <div className="space-y-3.5">
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Full Name</label>
-                          <input 
-                            type="text"
-                            value={customerName}
-                            onChange={(e) => {
-                              setCustomerName(e.target.value);
-                              if(e.target.value.trim()) setFormErrors(prev => ({...prev, name: false}));
-                            }}
-                            placeholder="John Doe"
-                            className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all ${
-                              formErrors.name ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
-                            }`}
-                          />
-                          {formErrors.name && (
-                            <p className="text-[10px] text-red-500 font-semibold mt-1">Full Name is required.</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Email Address</label>
-                          <input 
-                            type="email"
-                            value={customerEmail}
-                            onChange={(e) => {
-                              setCustomerEmail(e.target.value);
-                              if(e.target.value.trim()) setFormErrors(prev => ({...prev, email: false}));
-                            }}
-                            placeholder="johndoe@example.com"
-                            className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all ${
-                              formErrors.email ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
-                            }`}
-                          />
-                          {formErrors.email && (
-                            <p className="text-[10px] text-red-500 font-semibold mt-1">Email Address is required.</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Phone Number</label>
-                          <input 
-                            type="tel"
-                            value={phoneNumber}
-                            onChange={(e) => {
-                              setPhoneNumber(e.target.value);
-                              if(e.target.value.trim()) setFormErrors(prev => ({...prev, phoneNumber: false}));
-                            }}
-                            placeholder="+1 (555) 000-0000"
-                            className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all ${
-                              formErrors.phoneNumber ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
-                            }`}
-                          />
-                          {formErrors.phoneNumber && (
-                            <p className="text-[10px] text-red-500 font-semibold mt-1">Phone Number is required.</p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-wide text-zinc-500 mb-1">Shipping Destination Address</label>
-                          <textarea 
-                            value={shippingAddress}
-                            onChange={(e) => {
-                              setShippingAddress(e.target.value);
-                              if(e.target.value.trim()) setFormErrors(prev => ({...prev, shippingAddress: false}));
-                            }}
-                            placeholder="Street Address, Suite, Apartment, City, State"
-                            rows="2"
-                            className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all resize-none ${
-                              formErrors.shippingAddress ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
-                            }`}
-                          />
-                          {formErrors.shippingAddress && (
-                            <p className="text-[10px] text-red-500 font-semibold mt-1">Shipping Destination Address is required.</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Drawer Footer */}
-              {cart.length > 0 && (
-                <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-6 sm:px-6">
-                  <div className="flex justify-between text-base font-bold text-zinc-900">
-                    <p>Subtotal</p>
-                    <p>${cartSubtotal.toFixed(2)}</p>
-                  </div>
-                  <p className="mt-0.5 text-xs text-zinc-500">Free delivery nationwide via Cash on Delivery terms.</p>
-                  <div className="mt-6">
-                    <button
-                      onClick={handleCheckout}
-                      disabled={checkoutLoading}
-                      className="w-full flex items-center justify-center rounded-xl bg-black px-6 py-3.5 text-sm font-bold text-white shadow-md hover:bg-zinc-800 transition active:scale-98 disabled:bg-zinc-400 disabled:cursor-not-allowed"
-                    >
-                      {checkoutLoading ? (
-                        <span className="flex items-center gap-2">
-                          <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Processing Cash order...
-                        </span>
-                      ) : (
-                        'Confirm Order (Cash on Delivery)'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <CartDrawer 
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        updateQuantity={updateQuantity}
+        customerName={customerName}
+        setCustomerName={setCustomerName}
+        customerEmail={customerEmail}
+        setCustomerEmail={setCustomerEmail}
+        shippingAddress={shippingAddress}
+        setShippingAddress={setShippingAddress}
+        phoneNumber={phoneNumber}
+        setPhoneNumber={setPhoneNumber}
+        formErrors={formErrors}
+        setFormErrors={setFormErrors}
+        checkoutLoading={checkoutLoading}
+        handleCheckout={handleCheckout}
+      />
     </div>
   );
 }
