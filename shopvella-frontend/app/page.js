@@ -241,7 +241,7 @@ export default function Storefront() {
               Shopvella
             </span>
 
-            {/* Custom Targeted Placeholder Input Component Grid */}
+            {/* Search Input Box */}
             <div className="mx-4 max-w-md flex-1 relative hidden sm:block">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-4 w-4 text-zinc-400">
@@ -332,22 +332,23 @@ export default function Storefront() {
               ) : (
                 <div>
                   <div className="mb-6 border-b border-zinc-200 pb-3">
-                    <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">PREMIUM EDITIONS ({products.length})</h2>
+                    <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
+                      PREMIUM EDITIONS ({products.length})
+                    </h2>
                   </div>
                   
-                  <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
+                  {/* Two columns side-by-side on mobile, spacing tightened to gap-3 */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 xl:gap-8">
                     {products.map((productItem) => {
                       const imageryArray = productItem.image_urls || [];
                       const directSourceThumbnail = imageryArray[0] || '';
-                      
-                      // Safeguard description tracking data defaults to preventing runtime structural layout faults
                       const safeDescriptionText = productItem.description || '';
 
                       return (
                         <div 
                           key={productItem.id} 
                           onClick={() => setSelectedProduct(productItem)}
-                          className="group cursor-pointer flex flex-col justify-between bg-white border border-zinc-200 rounded-2xl overflow-hidden p-4 shadow-sm hover:shadow-md transition-all duration-300"
+                          className="group cursor-pointer flex flex-col justify-between bg-white border border-zinc-200 rounded-2xl overflow-hidden p-3 md:p-4 shadow-sm hover:shadow-md transition-all duration-300"
                         >
                           <div>
                             <div className="aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 relative">
@@ -368,28 +369,28 @@ export default function Storefront() {
                               )}
                             </div>
                             
-                            <div className="mt-4 flex items-start justify-between gap-2">
+                            <div className="mt-3 md:mt-4 flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2">
                               <div className="flex-1">
-                                <h3 className="text-sm font-bold text-zinc-900 tracking-tight group-hover:text-zinc-600 transition-colors">
+                                <h3 className="text-xs md:text-sm font-bold text-zinc-900 tracking-tight group-hover:text-zinc-600 transition-colors line-clamp-1">
                                   {productItem.name}
                                 </h3>
                                 
-                                {/* Structural Injected Understated Typography Row for the Short Description */}
-                                <p className="text-xs text-zinc-500 mt-1 line-clamp-2 leading-relaxed font-normal">
+                                {/* 1-Line Understated Description Typography Injection */}
+                                <p className="text-[11px] md:text-xs text-zinc-500 mt-0.5 line-clamp-2 leading-relaxed font-normal">
                                   {safeDescriptionText}
                                 </p>
                                 
-                                <p className="mt-2 text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
-                                  Units Available: {productItem.stock_quantity}
+                                <p className="mt-1.5 text-[9px] md:text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
+                                  Units: {productItem.stock_quantity}
                                 </p>
                               </div>
-                              <p className="text-sm font-mono font-black text-zinc-900 shrink-0">
+                              <p className="text-xs md:text-sm font-mono font-black text-zinc-900 shrink-0 mt-0.5 sm:mt-0">
                                 ${Number(productItem.price || 0).toFixed(2)}
                               </p>
                             </div>
                           </div>
 
-                          <div className="mt-5 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs font-bold uppercase tracking-wide text-zinc-500 group-hover:text-black transition-colors">
+                          <div className="mt-4 md:mt-5 pt-2.5 md:pt-3 border-t border-zinc-100 flex items-center justify-between text-[10px] md:text-xs font-bold uppercase tracking-wide text-zinc-500 group-hover:text-black transition-colors">
                             <span>VIEW DETAILS →</span>
                           </div>
                         </div>
