@@ -10,7 +10,6 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
 
   // Local active image viewport reference tracker
   const [activePhoto, setActivePhoto] = useState('');
-  const [activeAccordionTab, setActiveAccordionTab] = useState('Narrative');
 
   // Sync active local picture viewing metrics safely when products mutate contexts
   useEffect(() => {
@@ -21,26 +20,10 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
     }
   }, [product]);
 
-  // Premium Tech Accessories Data Extraction Mapping Blocks
-  const accordionTabs = [
-    {
-      id: 'Narrative',
-      title: 'Narrative',
-      content: product.narrative || 'Military grade drop protection capsule engineered to secure your devices against high-impact collisions without adding bulk weight profiles.'
-    },
-    {
-      id: 'Specs & Fit',
-      title: 'Specs & Fit',
-      content: product.specs_and_fit || 'Fully compatible with standard MagSafe wireless charging matrices. Features a 2.5mm raised defense bezel perimeter protection zone.'
-    },
-    {
-      id: 'Care & Build',
-      title: 'Care & Build',
-      content: product.care_and_build || 'Formulated with an advanced oleophobic anti-fingerprint coating layer. Wipe cleanly using specialized micro-fiber cloth systems.'
-    }
-  ];
-
   const hasMultipleImages = structuralImageArray.length > 1;
+
+  // Defensive Structural Fallback: Guarantee string security even on temporary latency mismatch
+  const safeDetailsContentText = product.details || '';
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -88,7 +71,7 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
                       ? 'border-black ring-2 ring-black/5 scale-[0.97]' 
                       : 'border-zinc-200 opacity-60 hover:opacity-100'
                   }`}
-                  aria-label={`Switch main active viewport context frame matrix to alternate index element view ${index + 1}`}
+                  aria-label={`Switch main active viewport context frame matrix to alternate index view ${index + 1}`}
                 >
                   <img
                     src={photoUrl}
@@ -160,27 +143,14 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
             </button>
           </div>
 
-          {/* DYNAMIC TABBED ACCORDION DATA EXTRACTIONS MODULES */}
-          <div className="border-t border-zinc-200 pt-6 space-y-2">
-            <div className="flex border-b border-zinc-100 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              {accordionTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveAccordionTab(tab.id)}
-                  className={`pb-2.5 pr-4 border-b-2 transition-all ${
-                    activeAccordionTab === tab.id 
-                      ? 'border-black text-zinc-950 font-black' 
-                      : 'border-transparent hover:text-zinc-600'
-                  }`}
-                >
-                  {tab.title}
-                </button>
-              ))}
-            </div>
-            
-            <div className="py-2 animate-in fade-in duration-150">
-              <p className="text-xs text-zinc-500 leading-relaxed font-sans">
-                {accordionTabs.find(tab => tab.id === activeAccordionTab)?.content}
+          {/* REFACTORED SINGLE ELEVATED CONTENT BOX (Tabs entirely dropped) */}
+          <div className="border-t border-zinc-200 pt-6 space-y-3">
+            <h3 className="text-xs font-black uppercase tracking-wider text-zinc-900">
+              SPECIFICATIONS & DETAILS
+            </h3>
+            <div className="py-1">
+              <p className="text-xs leading-relaxed text-zinc-700 font-normal font-sans whitespace-pre-line">
+                {safeDetailsContentText}
               </p>
             </div>
           </div>

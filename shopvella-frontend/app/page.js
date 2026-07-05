@@ -136,10 +136,8 @@ export default function Storefront() {
       triggerToastNotification('Selection model configurations sold out.');
       return;
     }
-    // Isolate context payload completely to this item array
     const fastTrackItem = [{ ...product, quantity: 1 }];
     updateCachedCartState(fastTrackItem);
-    // Force open customer delivery modal registration sheets instantly
     setIsCartOpen(true);
   };
 
@@ -333,17 +331,17 @@ export default function Storefront() {
                 />
               ) : (
                 <div>
-                     <div className="mb-6 border-b border-zinc-200 pb-3">
-                     <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-                       PREMIUM EDITIONS ({products.length})
-                      </h2>
-                      </div>
+                  <div className="mb-6 border-b border-zinc-200 pb-3">
+                    <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">PREMIUM EDITIONS ({products.length})</h2>
+                  </div>
                   
                   <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:gap-x-8">
                     {products.map((productItem) => {
-                      // Check image_urls arrays securely fallback to empty structural loops safely
                       const imageryArray = productItem.image_urls || [];
                       const directSourceThumbnail = imageryArray[0] || '';
+                      
+                      // Safeguard description tracking data defaults to preventing runtime structural layout faults
+                      const safeDescriptionText = productItem.description || '';
 
                       return (
                         <div 
@@ -371,11 +369,17 @@ export default function Storefront() {
                             </div>
                             
                             <div className="mt-4 flex items-start justify-between gap-2">
-                              <div>
+                              <div className="flex-1">
                                 <h3 className="text-sm font-bold text-zinc-900 tracking-tight group-hover:text-zinc-600 transition-colors">
                                   {productItem.name}
                                 </h3>
-                                <p className="mt-1 text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
+                                
+                                {/* Structural Injected Understated Typography Row for the Short Description */}
+                                <p className="text-xs text-zinc-500 mt-1 line-clamp-2 leading-relaxed font-normal">
+                                  {safeDescriptionText}
+                                </p>
+                                
+                                <p className="mt-2 text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
                                   Units Available: {productItem.stock_quantity}
                                 </p>
                               </div>
@@ -386,10 +390,7 @@ export default function Storefront() {
                           </div>
 
                           <div className="mt-5 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs font-bold uppercase tracking-wide text-zinc-500 group-hover:text-black transition-colors">
-                          <span>VIEW DETAILS →</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-4 w-4 transform group-hover:translate-x-1 transition-transform">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                          </svg>
+                            <span>VIEW DETAILS →</span>
                           </div>
                         </div>
                       );
