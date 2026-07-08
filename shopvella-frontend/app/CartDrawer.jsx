@@ -23,6 +23,10 @@ export default function CartDrawer({
   if (!isOpen) return null;
 
   const cartSubtotal = cart.reduce((total, item) => total + (parseFloat(item.price) || 0) * item.quantity, 0);
+  
+  // Dynamic logistics rule configuration: Rs. 200 fee, free if subtotal is over Rs. 2000
+  const shippingFee = cartSubtotal > 2000 ? 0 : 200;
+  const orderTotal = cartSubtotal + shippingFee;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true">
@@ -62,59 +66,64 @@ export default function CartDrawer({
               <>
                 {/* Items List */}
                 <ul role="list" className="-my-6 divide-y divide-zinc-100 mb-8">
-                  {cart.map((item) => (
-                    <li key={item.id} className="flex py-6 animate-in fade-in duration-200">
-                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
-                        <img
-                          src={item.image_url || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600'}
-                          alt={item.name}
-                          className="h-full w-full object-cover object-center"
-                          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600'; }}
-                        />
-                      </div>
+                  {cart.map((item) => {
+                    // Extract the first available database catalog image thumbnail string
+                    const productThumbnailImage = item.image_urls?.[0] || item.image_url || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600';
 
-                      <div className="ml-4 flex flex-1 flex-col">
-                        <div>
-                          <div className="flex justify-between text-sm font-bold text-zinc-900">
-                            <h4 className="line-clamp-1">{item.name}</h4>
-                            <p className="ml-4">${((parseFloat(item.price) || 0) * item.quantity).toFixed(2)}</p>
-                          </div>
-                          <p className="mt-1 text-xs text-zinc-500">${(parseFloat(item.price) || 0).toFixed(2)} each</p>
+                    return (
+                      <li key={item.id} className="flex py-6 animate-in fade-in duration-200">
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50">
+                          <img
+                            src={productThumbnailImage}
+                            alt={item.name}
+                            className="h-full w-full object-cover object-center"
+                            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600'; }}
+                          />
                         </div>
-                        
-                        <div className="flex flex-1 items-end justify-between text-sm">
-                          <div className="flex items-center border border-zinc-200 rounded-md bg-white shadow-xs">
-                            <button
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-                              </svg>
-                            </button>
-                            <span className="px-3 py-1 text-xs font-bold text-zinc-800 bg-zinc-50 min-w-8 text-center select-none">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => updateQuantity(item.id, 1)}
-                              className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                              </svg>
-                            </button>
-                          </div>
 
-                          <button
-                            onClick={() => updateQuantity(item.id, -item.quantity)}
-                            className="font-medium text-xs text-red-600 hover:text-red-500 underline uppercase tracking-wider"
-                          >
-                            Remove
-                          </button>
+                        <div className="ml-4 flex flex-1 flex-col">
+                          <div>
+                            <div className="flex justify-between text-sm font-bold text-zinc-900">
+                              <h4 className="line-clamp-1">{item.name}</h4>
+                              <p className="ml-4 shrink-0">Rs. {((parseFloat(item.price) || 0) * item.quantity).toLocaleString('en-PK')}</p>
+                            </div>
+                            <p className="mt-1 text-xs text-zinc-500">Rs. {(parseFloat(item.price) || 0).toLocaleString('en-PK')} each</p>
+                          </div>
+                          
+                          <div className="flex flex-1 items-end justify-between text-sm">
+                            <div className="flex items-center border border-zinc-200 rounded-md bg-white shadow-xs">
+                              <button
+                                onClick={() => updateQuantity(item.id, -1)}
+                                className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+                                </svg>
+                              </button>
+                              <span className="px-3 py-1 text-xs font-bold text-zinc-800 bg-zinc-50 min-w-8 text-center select-none">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() => updateQuantity(item.id, 1)}
+                                className="px-2 py-1 text-zinc-500 hover:text-black hover:bg-zinc-50 transition"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-3 w-3">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                              </button>
+                            </div>
+
+                            <button
+                              onClick={() => updateQuantity(item.id, -item.quantity)}
+                              className="font-medium text-xs text-red-600 hover:text-red-500 underline uppercase tracking-wider"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 {/* Secure Form Controls */}
@@ -167,7 +176,7 @@ export default function CartDrawer({
                           setPhoneNumber(e.target.value);
                           if(e.target.value.trim()) setFormErrors(p => ({...p, phoneNumber: false}));
                         }}
-                        placeholder="+1 (555) 000-0000"
+                        placeholder="+92 300 1234567"
                         className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all ${
                           formErrors.phoneNumber ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
                         }`}
@@ -183,7 +192,7 @@ export default function CartDrawer({
                           setShippingAddress(e.target.value);
                           if(e.target.value.trim()) setFormErrors(p => ({...p, shippingAddress: false}));
                         }}
-                        placeholder="Street Address, Suite, Apartment, City, State"
+                        placeholder="Street Address, Sector/Mohallah, City, Province"
                         rows="2"
                         className={`w-full rounded-xl border px-3.5 py-2.5 text-xs text-zinc-900 placeholder-zinc-400 focus:bg-white focus:outline-none transition-all resize-none ${
                           formErrors.shippingAddress ? 'border-red-500 bg-red-50 focus:border-red-500' : 'border-zinc-200 bg-zinc-50 focus:border-black'
@@ -199,14 +208,28 @@ export default function CartDrawer({
 
           {/* Checkout Sticky Bar */}
           {cart.length > 0 && (
-            <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-6 sm:px-6">
-              <div className="flex justify-between text-base font-bold text-zinc-900">
+            <div className="border-t border-zinc-100 bg-zinc-50 px-4 py-5 sm:px-6 space-y-2">
+              <div className="flex justify-between text-xs font-medium text-zinc-600">
                 <p>Subtotal</p>
-                <p>${cartSubtotal.toFixed(2)}</p>
+                <p>Rs. {cartSubtotal.toLocaleString('en-PK')}</p>
               </div>
-              <p className="mt-0.5 text-xs text-zinc-500">Free delivery nationwide via Cash on Delivery parameters terms.</p>
+              <div className="flex justify-between text-xs font-medium text-zinc-600 pb-2 border-b border-zinc-200/60">
+                <p>Delivery Charges</p>
+                <p>{shippingFee === 0 ? 'FREE' : `Rs. ${shippingFee}`}</p>
+              </div>
+              <div className="flex justify-between text-base font-bold text-zinc-900 pt-1">
+                <p>Total Amount</p>
+                <p>Rs. {orderTotal.toLocaleString('en-PK')}</p>
+              </div>
               
-              <div className="mt-6">
+              <p className="text-[11px] text-zinc-500 mt-1">
+                {cartSubtotal > 2000 
+                  ? "Congratulations! Your order qualifies for Free Delivery nationwide." 
+                  : `Add Rs. ${(2000 - cartSubtotal).toLocaleString('en-PK')} more to unlock Free Nationwide Shipping.`
+                }
+              </p>
+              
+              <div className="mt-4">
                 <button
                   onClick={handleCheckout}
                   disabled={checkoutLoading}
