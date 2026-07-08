@@ -100,7 +100,7 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
 
             <div className="mt-4 flex items-baseline gap-4 border-b border-zinc-100 pb-5">
               <span className="text-3xl font-mono font-black text-zinc-950">
-                ${Number(product.price || 0).toFixed(2)}
+                pkr {Number(product.price || 0).toFixed(2)}
               </span>
               <span className="text-xs text-zinc-500 uppercase font-bold tracking-wider">
                 Cash On Delivery Guaranteed
