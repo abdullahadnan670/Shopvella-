@@ -25,6 +25,38 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
   // Defensive Structural Fallback: Guarantee string security even on temporary latency mismatch
   const safeDetailsContentText = product.details || '';
 
+  // Safe tracking wrappers
+  const handleAddToCartClick = () => {
+    if (typeof window !== 'undefined' && window.ttq) {
+      window.ttq.track('AddToCart', {
+        contents: [{
+          content_id: String(product.id),
+          content_name: product.name,
+          price: Number(product.price)
+        }],
+        value: Number(product.price),
+        currency: 'PKR'
+      });
+    }
+    addToCart(product);
+  };
+
+  const handleFastTrackClick = () => {
+    if (typeof window !== 'undefined' && window.ttq) {
+      window.ttq.track('InitiateCheckout', {
+        contents: [{
+          content_id: String(product.id),
+          content_name: product.name,
+          quantity: 1,
+          price: Number(product.price)
+        }],
+        value: Number(product.price),
+        currency: 'PKR'
+      });
+    }
+    fastTrackBuyNow(product);
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
       
@@ -123,7 +155,7 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
           <div className="space-y-3 pt-2">
             {/* Split A: Background Injection Control Module */}
             <button
-              onClick={() => addToCart(product)}
+              onClick={handleAddToCartClick}
               disabled={product.stock_quantity <= 0}
               className="w-full bg-zinc-100 hover:bg-zinc-200 border border-zinc-300 text-zinc-900 text-xs font-black uppercase tracking-widest py-4 px-6 rounded-xl transition-all active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -132,7 +164,7 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
 
             {/* Split B: Direct Conversion Isolation Fast-Path Checkout Module */}
             <button
-              onClick={() => fastTrackBuyNow(product)}
+              onClick={handleFastTrackClick}
               disabled={product.stock_quantity <= 0}
               className="w-full bg-black hover:bg-zinc-900 text-white text-xs font-black uppercase tracking-widest py-4 px-6 rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -143,7 +175,7 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
             </button>
           </div>
 
-          {/* REFACTORED SINGLE ELEVATED CONTENT BOX (Tabs entirely dropped) */}
+          {/* REFACTORED SINGLE ELEVATED CONTENT BOX */}
           <div className="border-t border-zinc-200 pt-6 space-y-3">
             <h3 className="text-xs font-black uppercase tracking-wider text-zinc-900">
               SPECIFICATIONS & DETAILS

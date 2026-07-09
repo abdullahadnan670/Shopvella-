@@ -67,7 +67,6 @@ export default function CartDrawer({
                 {/* Items List */}
                 <ul role="list" className="-my-6 divide-y divide-zinc-100 mb-8">
                   {cart.map((item) => {
-                    // Extract the first available database catalog image thumbnail string
                     const productThumbnailImage = item.image_urls?.[0] || item.image_url || 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80&w=600';
 
                     return (
