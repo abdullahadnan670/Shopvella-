@@ -4,10 +4,21 @@ import React, { useEffect } from 'react';
 
 export default function CheckoutSuccessPage() {
   
-  // Wipe localized structural tracking state variables completely empty on deployment
+  // Wipe localized structural tracking state variables and trigger TikTok Purchase tracking
   useEffect(() => {
+    // 1. Clear cart cache
     localStorage.removeItem('shopvella_cart_cache');
     console.log('🛒 Localized transactional cart parameters successfully reset.');
+
+    // 2. 🚀 TRIGGER TIKTOK COMPLETE PAYMENT PIXEL EVENT
+    if (typeof window !== 'undefined' && window.ttq) {
+      window.ttq.track('CompletePayment', {
+        value: 2500,        // Pass your actual value or standard placeholder item price 
+        currency: 'PKR',    // Set correctly to Pakistani Rupee
+        content_type: 'product'
+      });
+      console.log('📈 TikTok Pixel: CompletePayment event successfully triggered.');
+    }
   }, []);
 
   return (
