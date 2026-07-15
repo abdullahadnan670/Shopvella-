@@ -20,7 +20,14 @@ export default function Storefront() {
   const [toastMessage, setToastMessage] = useState(null);
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('All Cases');
+  
+  // 1. Dynamic Category Filtering States
+  const [categories, setCategories] = useState([
+    { id: '1', name: 'Bags', slug: 'bags' },
+    { id: '2', name: 'Cargos', slug: 'cargos' },
+    { id: '3', name: 'Tech Accessories', slug: 'tech-accessories' }
+  ]);
+  const [activeCategory, setActiveCategory] = useState('All');
 
   // COD Checkout Core Customer Delivery Registration Inputs
   const [customerName, setCustomerName] = useState('');
@@ -35,7 +42,9 @@ export default function Storefront() {
     phoneNumber: false
   });
 
-  // 📈 STEP 1: INITIALIZE TIKTOK PIXEL SECURELY ON CLIENT MOUNT
+  const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+  // 📈 INITIALIZE TIKTOK PIXEL SECURELY ON CLIENT MOUNT
   useEffect(() => {
     if (typeof window !== 'undefined') {
       !function (w, d, t) {
@@ -43,14 +52,31 @@ export default function Storefront() {
         var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
         ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
 
-        // Load your unique tracking layout
+        // Load unique tracking layout
         ttq.load('D97QTLBC77UEFAL2IS7G');
         ttq.page();
       }(window, document, 'ttq');
     }
   }, []);
 
-  // Fetch updated catalog dataset matching the new schema specifications
+  // 2. Fetch Categories from Local Node.js Backend on Load
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${BASE_API_URL}/api/categories`);
+        if (!response.ok) throw new Error('Could not synchronize categories matrix');
+        const result = await response.json();
+        if (result.success && result.data && result.data.length > 0) {
+          setCategories(result.data);
+        }
+      } catch (err) {
+        console.warn('Backend categories connection issue, displaying local offline fallbacks:', err);
+      }
+    };
+    fetchCategories();
+  }, [BASE_API_URL]);
+
+  // 3. Fetch Filtered Catalog mapping dynamic slugs & queries
   useEffect(() => {
     const fetchFilteredCatalog = async () => {
       try {
@@ -62,8 +88,12 @@ export default function Storefront() {
           urlParams.append('search', searchQuery.trim());
         }
         
-        const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://shopvella-backend.vercel.app';
-        const response = await fetch(`${baseApiUrl}/api/products?${urlParams.toString()}`);
+        // Append Category Slug Filter when active category is specified
+        if (activeCategory !== 'All') {
+          urlParams.append('category_slug', activeCategory);
+        }
+        
+        const response = await fetch(`${BASE_API_URL}/api/products?${urlParams.toString()}`);
         
         if (!response.ok) {
           throw new Error(`HTTP grid network sync exception code response: status ${response.status}`);
@@ -95,7 +125,7 @@ export default function Storefront() {
     }, 350);
 
     return () => clearTimeout(delayDebounceInstance);
-  }, [searchQuery]);
+  }, [searchQuery, activeCategory, BASE_API_URL]);
 
   // Sync cache records from localStorage on initial run
   useEffect(() => {
@@ -117,6 +147,12 @@ export default function Storefront() {
   const updateCachedCartState = (updatedCartStructure) => {
     setCart(updatedCartStructure);
     localStorage.setItem('shopvella_cart_cache', JSON.stringify(updatedCartStructure));
+  };
+
+  // Switch category states cleanly & close details view
+  const handleCategoryChange = (slug) => {
+    setActiveCategory(slug);
+    setSelectedProduct(null);
   };
 
   // Funnel Option A: Quiet background injection logic layer
@@ -205,8 +241,7 @@ export default function Storefront() {
         }
       };
 
-      const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://shopvella-backend.vercel.app';
-      const response = await fetch(`${baseApiUrl}/api/orders`, {
+      const response = await fetch(`${BASE_API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -215,7 +250,7 @@ export default function Storefront() {
       const result = await response.json();
 
       if (result.success) {
-        // 📈 STEP 2: TRACK SECURE CASH-ON-DELIVERY ORDER COMPLETIONS
+        // TRACK SECURE CASH-ON-DELIVERY ORDER COMPLETIONS
         if (typeof window !== 'undefined' && window.ttq) {
           const cartSubtotal = cart.reduce((total, item) => total + (parseFloat(item.price) || 0) * item.quantity, 0);
           const shippingFee = cartSubtotal > 2000 ? 0 : 200;
@@ -267,7 +302,7 @@ export default function Storefront() {
         <nav className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <span 
-              onClick={() => { setSelectedProduct(null); setSearchQuery(''); }}
+              onClick={() => { setSelectedProduct(null); setSearchQuery(''); setActiveCategory('All'); }}
               className="text-xl font-black tracking-tight uppercase text-zinc-900 cursor-pointer select-none"
             >
               Shopvella
@@ -339,100 +374,143 @@ export default function Storefront() {
 
         {/* Main Infrastructure Processing Block Container */}
         <main className="mx-auto max-w-7xl px-4 pb-24 sm:px-6 lg:px-8 mt-8">
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-24 text-zinc-400">
-              <p className="text-xs font-bold tracking-widest uppercase animate-pulse">Syncing Accessories Infrastructure Grid...</p>
+          
+          {/* Minimalist Horizontal Categories Selection Navigation Bar */}
+          {!selectedProduct && (
+            <div className="mb-8 border-b border-zinc-100 pb-4">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <button
+                  onClick={() => handleCategoryChange('All')}
+                  className={`px-5 py-2.5 text-[10px] font-extrabold uppercase tracking-widest rounded-full border transition-all shrink-0 ${
+                    activeCategory === 'All'
+                      ? 'bg-black text-white border-black shadow-xs'
+                      : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                  }`}
+                >
+                  All Accessories
+                </button>
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategoryChange(cat.slug)}
+                    className={`px-5 py-2.5 text-[10px] font-extrabold uppercase tracking-widest rounded-full border transition-all shrink-0 ${
+                      activeCategory === cat.slug
+                        ? 'bg-black text-white border-black shadow-xs'
+                        : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
-          {error && (
-            <div className="my-12 rounded-xl border border-red-200 bg-red-50 p-6 text-center text-red-800 max-w-xl mx-auto text-xs">
-              <p className="font-bold uppercase tracking-wide">Sync Fault Encountered</p>
-              <p className="mt-1 opacity-80">{error}</p>
-            </div>
-          )}
-
-          {!loading && !error && (
-            <>
-              {selectedProduct ? (
-                <ProductDetail 
-                  product={selectedProduct}
-                  onBack={() => setSelectedProduct(null)}
-                  addToCart={addToCart}
-                  fastTrackBuyNow={fastTrackBuyNow}
-                />
+          {selectedProduct ? (
+            <ProductDetail 
+              product={selectedProduct}
+              onBack={() => setSelectedProduct(null)}
+              addToCart={addToCart}
+              fastTrackBuyNow={fastTrackBuyNow}
+            />
+          ) : (
+            <div>
+              <div className="mb-6 border-b border-zinc-200 pb-3">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
+                  {activeCategory === 'All' ? 'PREMIUM EDITIONS' : `${activeCategory.replace('-', ' ')} COLLECTION`} ({products.length})
+                </h2>
+              </div>
+              
+              {/* Core Render Framework conditional blocks */}
+              {loading ? (
+                // Elegant Card Skeletons preserving layout dimensions
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="animate-pulse bg-white border border-zinc-200 rounded-2xl p-3 md:p-4 space-y-4">
+                      <div className="aspect-square w-full bg-zinc-200 rounded-xl" />
+                      <div className="space-y-2">
+                        <div className="h-3 bg-zinc-200 rounded w-2/3" />
+                        <div className="h-3 bg-zinc-200 rounded w-1/2" />
+                        <div className="h-4 bg-zinc-200 rounded w-1/4 pt-1" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="my-12 rounded-xl border border-red-200 bg-red-50 p-6 text-center text-red-800 max-w-xl mx-auto text-xs">
+                  <p className="font-bold uppercase tracking-wide">Sync Fault Encountered</p>
+                  <p className="mt-1 opacity-80">{error}</p>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="text-center py-24 text-zinc-400 border border-dashed border-zinc-200 rounded-3xl bg-white max-w-xl mx-auto px-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="mx-auto h-10 w-10 text-zinc-300 mb-2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.604 10.604Z" />
+                  </svg>
+                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-900">No Accessories Found</p>
+                  <p className="text-[11px] mt-1 text-zinc-500">There are no items matching this criteria currently inside our systems.</p>
+                </div>
               ) : (
-                <div>
-                  <div className="mb-6 border-b border-zinc-200 pb-3">
-                    <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-                      PREMIUM EDITIONS ({products.length})
-                    </h2>
-                  </div>
-                  
-                  {/* Two columns side-by-side on mobile, spacing tightened to gap-3 */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6 xl:gap-8">
-                    {products.map((productItem) => {
-                      const imageryArray = productItem.image_urls || [];
-                      const directSourceThumbnail = imageryArray[0] || '';
-                      const safeDescriptionText = productItem.description || '';
+                // Explicitly rendering 2 products per row on mobile, up to 4 on large screens
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+                  {products.map((productItem) => {
+                    const imageryArray = productItem.image_urls || [];
+                    const directSourceThumbnail = imageryArray[0] || '';
+                    const safeDescriptionText = productItem.description || '';
 
-                      return (
-                        <div 
-                          key={productItem.id} 
-                          onClick={() => setSelectedProduct(productItem)}
-                          className="group cursor-pointer flex flex-col justify-between bg-white border border-zinc-200 rounded-2xl overflow-hidden p-3 md:p-4 shadow-sm hover:shadow-md transition-all duration-300"
-                        >
-                          <div>
-                            <div className="aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 relative">
-                              {directSourceThumbnail ? (
-                                <img
-                                  src={directSourceThumbnail}
-                                  alt={productItem.name}
-                                  className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-400 uppercase font-mono">No Active Imagery</div>
-                              )}
-                              
-                              {productItem.stock_quantity <= 0 && (
-                                <div className="absolute inset-0 bg-white/85 backdrop-blur-[1px] flex items-center justify-center">
-                                  <span className="px-3 py-1 bg-black text-[9px] text-white font-bold uppercase tracking-widest rounded-full">SOLDOUT</span>
-                                </div>
-                              )}
-                            </div>
+                    return (
+                      <div 
+                        key={productItem.id} 
+                        onClick={() => setSelectedProduct(productItem)}
+                        className="group cursor-pointer flex flex-col justify-between bg-white border border-zinc-200 rounded-2xl overflow-hidden p-3 md:p-4 shadow-sm hover:shadow-md transition-all duration-300"
+                      >
+                        <div>
+                          <div className="aspect-square w-full overflow-hidden rounded-xl bg-zinc-100 relative">
+                            {directSourceThumbnail ? (
+                              <img
+                                src={directSourceThumbnail}
+                                alt={productItem.name}
+                                className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-400 uppercase font-mono">No Active Imagery</div>
+                            )}
                             
-                            <div className="mt-3 md:mt-4 flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2">
-                              <div className="flex-1">
-                                <h3 className="text-xs md:text-sm font-bold text-zinc-900 tracking-tight group-hover:text-zinc-600 transition-colors line-clamp-1">
-                                  {productItem.name}
-                                </h3>
-                                
-                                {/* 1-Line Understated Description Typography Injection */}
-                                <p className="text-[11px] md:text-xs text-zinc-500 mt-0.5 line-clamp-2 leading-relaxed font-normal">
-                                  {safeDescriptionText}
-                                </p>
-                                
-                                <p className="mt-1.5 text-[9px] md:text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
-                                  Units: {productItem.stock_quantity}
-                                </p>
+                            {productItem.stock_quantity <= 0 && (
+                              <div className="absolute inset-0 bg-white/85 backdrop-blur-[1px] flex items-center justify-center">
+                                <span className="px-3 py-1 bg-black text-[9px] text-white font-bold uppercase tracking-widest rounded-full">SOLDOUT</span>
                               </div>
-                              {/* Swapped currency token mapping structure directly to PKR */}
-                              <p className="text-xs md:text-sm font-mono font-black text-zinc-900 shrink-0 mt-0.5 sm:mt-0">
-                                Rs. {Number(productItem.price || 0).toLocaleString('en-PK')}
+                            )}
+                          </div>
+                          
+                          <div className="mt-3 md:mt-4 flex flex-col sm:flex-row sm:items-start justify-between gap-1 sm:gap-2">
+                            <div className="flex-1">
+                              <h3 className="text-xs md:text-sm font-bold text-zinc-900 tracking-tight group-hover:text-zinc-600 transition-colors line-clamp-1">
+                                {productItem.name}
+                              </h3>
+                              
+                              <p className="text-[11px] md:text-xs text-zinc-500 mt-0.5 line-clamp-2 leading-relaxed font-normal">
+                                {safeDescriptionText}
+                              </p>
+                              
+                              <p className="mt-1.5 text-[9px] md:text-[10px] text-zinc-400 uppercase tracking-wider font-mono">
+                                Units: {productItem.stock_quantity}
                               </p>
                             </div>
-                          </div>
-
-                          <div className="mt-4 md:mt-5 pt-2.5 md:pt-3 border-t border-zinc-100 flex items-center justify-between text-[10px] md:text-xs font-bold uppercase tracking-wide text-zinc-500 group-hover:text-black transition-colors">
-                            <span>VIEW DETAILS →</span>
+                            <p className="text-xs md:text-sm font-mono font-black text-zinc-900 shrink-0 mt-0.5 sm:mt-0">
+                              Rs. {Number(productItem.price || 0).toLocaleString('en-PK')}
+                            </p>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        <div className="mt-4 md:mt-5 pt-2.5 md:pt-3 border-t border-zinc-100 flex items-center justify-between text-[10px] md:text-xs font-bold uppercase tracking-wide text-zinc-500 group-hover:text-black transition-colors">
+                          <span>VIEW DETAILS →</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
-            </>
+            </div>
           )}
         </main>
       </div>

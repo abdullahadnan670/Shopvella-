@@ -8,20 +8,19 @@ dotenv.config();
 
 const app = express();
 
-// Absolute verification configuration safety barrier sequence checks
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  console.error('CRITICAL INITIALIZATION ERROR: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment parameters variables entries inside target platforms config.');
+// 1. Connect to Supabase using defined credentials with fallback checks
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('CRITICAL INITIALIZATION ERROR: Missing SUPABASE_URL or SUPABASE_KEY inside environment configuration.');
   process.exit(1);
 }
 
-// Instantiate internal administrative client pipeline explicitly overriding standard tracking definitions
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Instantiate internal administrative client pipeline
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Global Middleware Configuration Engine
-// UPDATED: Configured to explicitly accept requests from your live Vercel URL
 app.use(cors({
   origin: ['https://shopvella.vercel.app', 'http://localhost:3000'],
   credentials: true,
@@ -33,7 +32,7 @@ app.use(express.json());
 
 /**
  * @route   GET /api
- * @desc    Global API base deployment status tracking interface layout check route handler
+ * @desc    Global API base deployment status tracking interface
  */
 app.get('/api', (req, res) => {
   return res.status(200).json({
@@ -43,18 +42,59 @@ app.get('/api', (req, res) => {
 });
 
 /**
+ * @route   GET /api/categories
+ * @desc    Fetch all columns from the categories table
+ */
+app.get('/api/categories', async (req, res) => {
+  try {
+    const { data: categoriesDataset, error: queryError } = await supabase
+      .from('categories')
+      .select('*');
+
+    if (queryError) {
+      return res.status(500).json({ 
+        error: `Database category extraction failed: ${queryError.message}` 
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      count: categoriesDataset.length,
+      data: categoriesDataset
+    });
+  } catch (caughtErrorInstance) {
+    return res.status(500).json({ 
+      error: `Internal Server Error during categories retrieval: ${caughtErrorInstance.message}` 
+    });
+  }
+});
+
+/**
  * @route   GET /api/products
- * @desc    Fetch products supporting complex text matching queries and filtering mechanics
+ * @desc    Fetch products supporting complex text matching, description category queries,
+ *          and strict Category Table Joins using the 'category_slug' parameter.
  */
 app.get('/api/products', async (req, res) => {
   try {
-    const { search, category } = req.query;
-    let databaseQuery = supabase.from('products').select('*');
+    const { search, category, category_slug } = req.query;
+    let databaseQuery;
 
+    // 3. Perform a join with 'categories' if category_slug is supplied
+    if (category_slug && category_slug.trim() !== '') {
+      databaseQuery = supabase
+        .from('products')
+        .select('*, categories!inner(*)')
+        .eq('categories.slug', category_slug.trim());
+    } else {
+      databaseQuery = supabase.from('products').select('*');
+    }
+
+    // Support legacy search overrides
     if (search && search.trim() !== '') {
       databaseQuery = databaseQuery.ilike('name', `%${search.trim()}%`);
     }
 
+    // Support legacy plain category overrides
     if (category && category.trim() !== '' && category.trim() !== 'All Drops' && category.trim() !== 'All Cases') {
       databaseQuery = databaseQuery.ilike('description', `%${category.trim()}%`);
     }
@@ -62,10 +102,8 @@ app.get('/api/products', async (req, res) => {
     const { data: catalogDataset, error: queryErrorException } = await databaseQuery;
 
     if (queryErrorException) {
-      return res.status(400).json({
-        success: false,
-        error: 'Database extraction matrix query processing routines failed',
-        details: queryErrorException.message
+      return res.status(500).json({ 
+        error: `Database extraction matrix query processing routines failed: ${queryErrorException.message}` 
       });
     }
 
@@ -75,10 +113,46 @@ app.get('/api/products', async (req, res) => {
       data: catalogDataset
     });
   } catch (caughtErrorInstance) {
-    return res.status(500).json({
-      success: false,
-      error: 'Internal Server Error exception processing logged',
-      details: caughtErrorInstance.message
+    return res.status(500).json({ 
+      error: `Internal Server Error during product query execution: ${caughtErrorInstance.message}` 
+    });
+  }
+});
+
+/**
+ * @route   GET /api/products/:id
+ * @desc    Fetch a single product from the database using its primary ID key
+ */
+app.get('/api/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: productRecord, error: queryError } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    // 5. Proper error handling if query fails or target record does not exist
+    if (queryError) {
+      return res.status(404).json({ 
+        error: `Product lookup failed: ${queryError.message}` 
+      });
+    }
+
+    if (!productRecord) {
+      return res.status(404).json({ 
+        error: "Product does not exist" 
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: productRecord
+    });
+  } catch (caughtErrorInstance) {
+    return res.status(500).json({ 
+      error: `Internal Server Error retrieving product details: ${caughtErrorInstance.message}` 
     });
   }
 });
@@ -94,9 +168,7 @@ app.post('/api/orders', async (req, res) => {
     // Structural input validation check
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
-        success: false,
-        error: 'Validation Failed',
-        details: 'The "items" property parameter layer field is required and must be tracking a non-empty array block.'
+        error: 'Validation Failed: The "items" property field is required and must be a non-empty array block.'
       });
     }
 
@@ -108,9 +180,7 @@ app.post('/api/orders', async (req, res) => {
       !customerDetails.phoneNumber?.trim()
     ) {
       return res.status(400).json({
-        success: false,
-        error: 'Validation Failed',
-        details: 'Missing crucial parameter components inside checkout customer details matrix values.'
+        error: 'Validation Failed: Missing crucial parameter components inside checkout customer details.'
       });
     }
 
@@ -125,9 +195,7 @@ app.post('/api/orders', async (req, res) => {
 
     if (lookupError || !verifiedPriceLookups || verifiedPriceLookups.length === 0) {
       return res.status(422).json({
-        success: false,
-        error: 'Catalog Synchronization Failed',
-        details: lookupError ? lookupError.message : 'No matching product configurations found.'
+        error: lookupError ? `Catalog Sync Failed: ${lookupError.message}` : 'No matching product configurations found.'
       });
     }
 
@@ -140,17 +208,13 @@ app.post('/api/orders', async (req, res) => {
 
       if (!liveCatalogRecord) {
         return res.status(422).json({
-          success: false,
-          error: 'Entity Conflict Discoveries',
-          details: `Product tracking identification reference key ID ${clientOrderedItem.id} does not map inside verified active dataset grids.`
+          error: `Entity Conflict Discoveries: Product ID ${clientOrderedItem.id} does not map inside verified active dataset.`
         });
       }
 
       if (liveCatalogRecord.stock_quantity < clientOrderedItem.quantity) {
         return res.status(422).json({
-          success: false,
-          error: 'Inventory Stock Outage Protection Error',
-          details: `Requested allocation volume size for product "${liveCatalogRecord.name}" exceeds current available quantities metrics balances.`
+          error: `Inventory Stock Outage: Requested allocation for product "${liveCatalogRecord.name}" exceeds current available stock.`
         });
       }
 
@@ -166,44 +230,38 @@ app.post('/api/orders', async (req, res) => {
         p_shipping_address: customerDetails.shippingAddress.trim(),
         p_phone_number: customerDetails.phoneNumber.trim(),
         p_total_amount: parseFloat(certifiedServerCalculatedTotal.toFixed(2)),
-        p_items: items // Forward client tracking objects array containing parameters safely down into database level engines
+        p_items: items 
       }
     );
 
     // Intercept specific custom database errors raised inside validation loops
     if (rpcDatabaseExecutionError) {
       return res.status(422).json({
-        success: false,
-        error: 'Transaction Aborted Execution Context Processing Failure',
-        details: rpcDatabaseExecutionError.message
+        error: `Transaction Aborted: ${rpcDatabaseExecutionError.message}`
       });
     }
 
-    // Return confirmation status code block back out to the frontend platform layout framework tracking arrays
+    // Return confirmation status code block back out to the frontend platform layout
     return res.status(201).json({
       success: true,
       message: 'Order placed successfully via Cash on Delivery!',
       orderId: rpcExecutionResult.order_id,
       billingSummary: {
         totalChargedAmount: parseFloat(certifiedServerCalculatedTotal.toFixed(2)),
-          unitsShippedCount: items.reduce((accumulation, directRecord) => accumulation + parseInt(directRecord.quantity, 10), 0)
+        unitsShippedCount: items.reduce((accumulation, directRecord) => accumulation + parseInt(directRecord.quantity, 10), 0)
       }
     });
   } catch (runtimeEndpointError) {
     return res.status(500).json({
-      success: false,
-      error: 'Internal Transactional Request Loop System Crash Fault Exception Detected',
-      details: runtimeEndpointError.message
+      error: `Internal Server Error during transactional execution: ${runtimeEndpointError.message}`
     });
   }
 });
 
-// Fallback error-catching structure mapping routes handles route structures missing patterns definitions
+// Fallback error-catching structure mapping route paths missing from router patterns
 app.use((req, res) => {
   return res.status(404).json({
-    success: false,
-    error: 'Resource Location Error',
-    details: 'Requested target endpoint processing path route configuration map not discovered inside core router allocation structures pools.'
+    error: 'Resource Location Error: Requested endpoint processing path not found.'
   });
 });
 
@@ -215,5 +273,5 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   });
 }
 
-// Clean export statement design pattern architecture layouts to allow Vercel environments to process functions instantly
+// Export server application for deployment configurations
 export default app;
