@@ -11,6 +11,24 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
   // Local active image viewport reference tracker
   const [activePhoto, setActivePhoto] = useState('');
 
+  // 🛠️ Functional Dynamic Option Selectors
+  const [selectedSize, setSelectedSize] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
+  const [quantity, setQuantity] = useState(1);
+
+  // Parse options safely from array or comma-separated string formats
+  const parseOptions = (field) => {
+    if (!field) return [];
+    if (Array.isArray(field)) return field.filter(Boolean);
+    if (typeof field === 'string') {
+      return field.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+  };
+
+  const availableSizes = parseOptions(product.sizes || product.size_options);
+  const availableColors = parseOptions(product.colors || product.color_options);
+
   // Sync active local picture viewing metrics safely when products mutate contexts
   useEffect(() => {
     if (structuralImageArray.length > 0) {
@@ -18,6 +36,12 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
     } else {
       setActivePhoto('');
     }
+
+    const sizes = parseOptions(product.sizes || product.size_options);
+    const colors = parseOptions(product.colors || product.color_options);
+    setSelectedSize(sizes.length > 0 ? sizes[0] : '');
+    setSelectedColor(colors.length > 0 ? colors[0] : '');
+    setQuantity(1);
   }, [product]);
 
   const hasMultipleImages = structuralImageArray.length > 1;
@@ -31,14 +55,15 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
       window.ttq.track('AddToCart', {
         contents: [{
           content_id: String(product.id),
-          content_name: product.name,
+          content_name: `${product.name}${selectedSize ? ` (${selectedSize})` : ''}${selectedColor ? ` - ${selectedColor}` : ''}`,
+          quantity: quantity,
           price: Number(product.price)
         }],
-        value: Number(product.price),
+        value: Number(product.price) * quantity,
         currency: 'PKR'
       });
     }
-    addToCart(product);
+    addToCart(product, quantity, selectedSize || null, selectedColor || null);
   };
 
   const handleFastTrackClick = () => {
@@ -46,15 +71,15 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
       window.ttq.track('InitiateCheckout', {
         contents: [{
           content_id: String(product.id),
-          content_name: product.name,
-          quantity: 1,
+          content_name: `${product.name}${selectedSize ? ` (${selectedSize})` : ''}${selectedColor ? ` - ${selectedColor}` : ''}`,
+          quantity: quantity,
           price: Number(product.price)
         }],
-        value: Number(product.price),
+        value: Number(product.price) * quantity,
         currency: 'PKR'
       });
     }
-    fastTrackBuyNow(product);
+    fastTrackBuyNow(product, quantity, selectedSize || null, selectedColor || null);
   };
 
   return (
@@ -148,6 +173,85 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
                   <span className="text-red-600 font-bold uppercase tracking-wider">Allocation exhausted from active distribution nodes.</span>
                 )}
               </p>
+            </div>
+          </div>
+
+          {/* DYNAMIC SELECTORS MATRIX: ONLY RENDERS WHEN ATTRIBUTES EXIST */}
+          <div className="space-y-5 border-t border-b border-zinc-100 py-6">
+            {/* Size Selector */}
+            {availableSizes.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                  Select Size: <strong className="text-zinc-900">{selectedSize}</strong>
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {availableSizes.map((sz) => (
+                    <button
+                      key={sz}
+                      onClick={() => setSelectedSize(sz)}
+                      className={`px-4 py-2 text-[10px] font-extrabold uppercase tracking-widest rounded-lg border transition-all ${
+                        selectedSize === sz
+                          ? 'bg-black text-white border-black shadow-xs'
+                          : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                      }`}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Color Selector */}
+            {availableColors.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                  Select Color: <strong className="text-zinc-900">{selectedColor}</strong>
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {availableColors.map((col) => (
+                    <button
+                      key={col}
+                      onClick={() => setSelectedColor(col)}
+                      className={`px-4 py-2 text-[10px] font-extrabold uppercase tracking-widest rounded-lg border transition-all ${
+                        selectedColor === col
+                          ? 'bg-black text-white border-black shadow-xs'
+                          : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
+                      }`}
+                    >
+                      {col}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Quantity Selector */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                Quantity
+              </span>
+              <div className="flex items-center w-32 border border-zinc-200 rounded-xl overflow-hidden bg-white">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  disabled={quantity <= 1 || product.stock_quantity <= 0}
+                  className="w-10 h-10 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 border-r border-zinc-200 transition-colors font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  —
+                </button>
+                <span className="flex-1 text-center text-xs font-mono font-bold text-zinc-900">
+                  {quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.min(product.stock_quantity, q + 1))}
+                  disabled={quantity >= product.stock_quantity || product.stock_quantity <= 0}
+                  className="w-10 h-10 flex items-center justify-center text-zinc-600 hover:bg-zinc-50 border-l border-zinc-200 transition-colors font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  +
+                </button>
+              </div>
             </div>
           </div>
 

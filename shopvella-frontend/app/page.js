@@ -44,9 +44,13 @@ export default function Storefront() {
 
   const BASE_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-  // 📈 INITIALIZE TIKTOK PIXEL SECURELY ON CLIENT MOUNT
+  // 📈 INITIALIZE TIKTOK PIXEL SECURELY ON CLIENT MOUNT (WITH DUPLICATION GUARD)
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // 🛡️ Guard: Exit instantly if the pixel has already been initialized in this session
+      if (window.__ttq_initialized) return;
+      window.__ttq_initialized = true;
+
       !function (w, d, t) {
         w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(
         var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
@@ -102,13 +106,16 @@ export default function Storefront() {
         const result = await response.json();
         
         if (result.success) {
-          setProducts(result.data || []);
+          const freshProducts = result.data || [];
+          setProducts(freshProducts);
           
-          // Re-sync active view references if database catalog reloads
-          if (selectedProduct) {
-            const reSyncedInstance = (result.data || []).find(p => p.id === selectedProduct.id);
-            if (reSyncedInstance) setSelectedProduct(reSyncedInstance);
-          }
+          // 🚀 FIX: Re-sync active view references using a functional state updater.
+          // This keeps 'selectedProduct' out of the dependency array, stopping the infinite render loop!
+          setSelectedProduct((currentSelected) => {
+            if (!currentSelected) return null;
+            const reSyncedInstance = freshProducts.find(p => String(p.id) === String(currentSelected.id));
+            return reSyncedInstance || currentSelected;
+          });
         } else {
           throw new Error(result.error || 'Database lookup anomalies caught.');
         }
@@ -125,6 +132,8 @@ export default function Storefront() {
     }, 350);
 
     return () => clearTimeout(delayDebounceInstance);
+    
+    // selectedProduct is safely omitted from here
   }, [searchQuery, activeCategory, BASE_API_URL]);
 
   // Sync cache records from localStorage on initial run
@@ -139,6 +148,74 @@ export default function Storefront() {
     }
   }, []);
 
+  // 🔒 SECURE URL DETAILED LOOKUP WRAPPER
+  const fetchSingleProductSecurely = async (id) => {
+    // Escape path traversal or SQL injection structures from client URL
+    const sanitizedId = String(id).replace(/[^a-zA-Z0-9-_]/g, '');
+    if (!sanitizedId) return;
+
+    try {
+      const response = await fetch(`${BASE_API_URL}/api/products/${sanitizedId}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          setSelectedProduct(result.data);
+        }
+      }
+    } catch (err) {
+      console.error('Dynamic context single lookup failure:', err);
+    }
+  };
+
+  // 🗺️ SECURE BROWSER STATE SYNCHRONIZATION EVENT TRACKER
+  useEffect(() => {
+    const synchronizeUrlParams = () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const urlProductId = params.get('product');
+
+      if (urlProductId) {
+        const sanitizedId = String(urlProductId).replace(/[^a-zA-Z0-9-_]/g, '');
+        const existingLoadedProduct = products.find(p => String(p.id) === sanitizedId);
+        
+        if (existingLoadedProduct) {
+          setSelectedProduct(existingLoadedProduct);
+        } else {
+          fetchSingleProductSecurely(sanitizedId);
+        }
+      } else {
+        setSelectedProduct(null);
+      }
+    };
+
+    synchronizeUrlParams();
+
+    window.addEventListener('popstate', synchronizeUrlParams);
+    return () => window.removeEventListener('popstate', synchronizeUrlParams);
+  }, [products]);
+
+  // Safe handler to update the product and browser search query securely
+  const handleProductSelection = (product) => {
+    setSelectedProduct(product);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('product', product.id);
+      window.history.pushState(null, '', `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  // Safe handler to return to catalog and clean the browser history query parameter
+  const handleReturnToGrid = () => {
+    setSelectedProduct(null);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('product');
+      const finalSearch = params.toString();
+      const updatedUrl = finalSearch ? `${window.location.pathname}?${finalSearch}` : window.location.pathname;
+      window.history.pushState(null, '', updatedUrl);
+    }
+  };
+
   const triggerToastNotification = (message) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(null), 3000);
@@ -152,57 +229,71 @@ export default function Storefront() {
   // Switch category states cleanly & close details view
   const handleCategoryChange = (slug) => {
     setActiveCategory(slug);
-    setSelectedProduct(null);
+    handleReturnToGrid();
   };
 
-  // Funnel Option A: Quiet background injection logic layer
-  const addToCart = (product) => {
+  // Funnel Option A: Quiet background injection logic layer (with Options & Quantity)
+  const addToCart = (product, quantityToAdd = 1, selectedSize = null, selectedColor = null) => {
     if (product.stock_quantity <= 0) {
       triggerToastNotification('Selection configuration sold out.');
       return;
     }
 
-    const existingItem = cart.find((item) => item.id === product.id);
+    const existingItemIndex = cart.findIndex((item) => 
+      item.id === product.id && 
+      item.selectedSize === selectedSize && 
+      item.selectedColor === selectedColor
+    );
+    
     let newCartItems = [];
 
-    if (existingItem) {
-      if (existingItem.quantity >= product.stock_quantity) {
+    if (existingItemIndex > -1) {
+      const existingItem = cart[existingItemIndex];
+      if (existingItem.quantity + quantityToAdd > product.stock_quantity) {
         triggerToastNotification(`Maximum capacity limit hit (${product.stock_quantity} units available).`);
         return;
       }
-      newCartItems = cart.map((item) =>
-        item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+      newCartItems = cart.map((item, index) =>
+        index === existingItemIndex ? { ...item, quantity: item.quantity + quantityToAdd } : item
       );
     } else {
-      newCartItems = [...cart, { ...product, quantity: 1 }];
+      newCartItems = [...cart, { ...product, quantity: quantityToAdd, selectedSize, selectedColor }];
     }
     
     updateCachedCartState(newCartItems);
-    triggerToastNotification(`"${product.name}" injected safely into background cart.`);
+    
+    const optionLabels = [selectedSize, selectedColor].filter(Boolean).join(' / ');
+    triggerToastNotification(`"${product.name}"${optionLabels ? ` [${optionLabels}]` : ''} added safely to cart.`);
   };
 
-  // Funnel Option B: Fast-Track conversion bypass logic shortcut
-  const fastTrackBuyNow = (product) => {
+  // Funnel Option B: Fast-Track buy now integration
+  const fastTrackBuyNow = (product, quantityToAdd = 1, selectedSize = null, selectedColor = null) => {
     if (product.stock_quantity <= 0) {
       triggerToastNotification('Selection model configurations sold out.');
       return;
     }
-    const fastTrackItem = [{ ...product, quantity: 1 }];
+    const fastTrackItem = [{ ...product, quantity: quantityToAdd, selectedSize, selectedColor }];
     updateCachedCartState(fastTrackItem);
     setIsCartOpen(true);
   };
 
-  const updateQuantity = (productId, amount) => {
-    const targetProductInCart = cart.find(item => item.id === productId);
-    if (!targetProductInCart) return;
+  const updateQuantity = (productId, amount, selectedSize = undefined, selectedColor = undefined) => {
+    const targetIndex = cart.findIndex(item => 
+      item.id === productId && 
+      (selectedSize === undefined || item.selectedSize === selectedSize) && 
+      (selectedColor === undefined || item.selectedColor === selectedColor)
+    );
+    if (targetIndex === -1) return;
+
+    const targetProductInCart = cart[targetIndex];
 
     if (amount > 0 && targetProductInCart.quantity >= targetProductInCart.stock_quantity) {
       triggerToastNotification('Cannot exceed real-time tracking warehouse metrics.');
       return;
     }
 
-    const computedAdjustedCartStructure = cart.map((item) => {
-      if (item.id === productId) {
+    const computedAdjustedCartStructure = cart.map((item, index) => {
+      if (index === targetIndex) {
         const newQty = item.quantity + amount;
         return newQty > 0 ? { ...item, quantity: newQty } : null;
       }
@@ -231,7 +322,9 @@ export default function Storefront() {
         items: cart.map((item) => ({
           id: item.id,
           quantity: item.quantity,
-          name: item.name
+          name: item.name,
+          selectedSize: item.selectedSize || null,
+          selectedColor: item.selectedColor || null,
         })),
         customerDetails: {
           name: customerName.trim(),
@@ -258,7 +351,7 @@ export default function Storefront() {
           window.ttq.track('CompletePayment', {
             contents: cart.map((item) => ({
               content_id: String(item.id),
-              content_name: item.name,
+              content_name: `${item.name}${item.selectedSize ? ` (${item.selectedSize})` : ''}${item.selectedColor ? ` - ${item.selectedColor}` : ''}`,
               quantity: item.quantity,
               price: Number(item.price)
             })),
@@ -302,7 +395,7 @@ export default function Storefront() {
         <nav className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <span 
-              onClick={() => { setSelectedProduct(null); setSearchQuery(''); setActiveCategory('All'); }}
+              onClick={() => { handleReturnToGrid(); setSearchQuery(''); setActiveCategory('All'); }}
               className="text-xl font-black tracking-tight uppercase text-zinc-900 cursor-pointer select-none"
             >
               Shopvella
@@ -409,7 +502,7 @@ export default function Storefront() {
           {selectedProduct ? (
             <ProductDetail 
               product={selectedProduct}
-              onBack={() => setSelectedProduct(null)}
+              onBack={handleReturnToGrid}
               addToCart={addToCart}
               fastTrackBuyNow={fastTrackBuyNow}
             />
@@ -460,7 +553,7 @@ export default function Storefront() {
                     return (
                       <div 
                         key={productItem.id} 
-                        onClick={() => setSelectedProduct(productItem)}
+                        onClick={() => handleProductSelection(productItem)}
                         className="group cursor-pointer flex flex-col justify-between bg-white border border-zinc-200 rounded-2xl overflow-hidden p-3 md:p-4 shadow-sm hover:shadow-md transition-all duration-300"
                       >
                         <div>
