@@ -94,7 +94,7 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="h-4 w-4 transform group-hover:-translate-x-0.5 transition-transform">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
-          Back to accessories grid
+          Back to products grid
         </button>
       </div>
 
@@ -147,7 +147,7 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-600 bg-zinc-100 px-2.5 py-1 rounded-md border border-zinc-200">
-                ✓ MILITARY-GRADE DROP PROTECTION VERIFIED
+                ✓ PREMIUM QUALITY GUARANTEED
               </span>
             </div>
 
@@ -225,6 +225,14 @@ export default function ProductDetail({ product, onBack, addToCart, fastTrackBuy
                 </div>
               </div>
             )}
+
+            {/* 🚀 WHATSAPP SPECIFICATION NOTICE ALERT */}
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 flex items-start gap-2.5">
+              <span className="text-amber-600 shrink-0 text-sm mt-0.5">💬</span>
+              <p className="text-[11px] leading-relaxed font-medium text-amber-800">
+                If you want to specify the color, please send the link or a photo of this product and your chosen color to our WhatsApp: <strong className="font-bold underline tracking-wider text-amber-950">03054929863</strong>
+              </p>
+            </div>
 
             {/* Quantity Selector */}
             <div className="space-y-2">

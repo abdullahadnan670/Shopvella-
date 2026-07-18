@@ -27,7 +27,9 @@ export default function Storefront() {
     { id: '2', name: 'Cargos', slug: 'cargos' },
     { id: '3', name: 'Tech Accessories', slug: 'tech-accessories' }
   ]);
-  const [activeCategory, setActiveCategory] = useState('All');
+  
+  // 🚀 LANDING CONFIGURATION: Modified landing state to default directly to 'bags'
+  const [activeCategory, setActiveCategory] = useState('bags');
 
   // COD Checkout Core Customer Delivery Registration Inputs
   const [customerName, setCustomerName] = useState('');
@@ -92,8 +94,8 @@ export default function Storefront() {
           urlParams.append('search', searchQuery.trim());
         }
         
-        // Append Category Slug Filter when active category is specified
-        if (activeCategory !== 'All') {
+        // Append Category Slug Filter safely
+        if (activeCategory) {
           urlParams.append('category_slug', activeCategory);
         }
         
@@ -109,8 +111,6 @@ export default function Storefront() {
           const freshProducts = result.data || [];
           setProducts(freshProducts);
           
-          // 🚀 FIX: Re-sync active view references using a functional state updater.
-          // This keeps 'selectedProduct' out of the dependency array, stopping the infinite render loop!
           setSelectedProduct((currentSelected) => {
             if (!currentSelected) return null;
             const reSyncedInstance = freshProducts.find(p => String(p.id) === String(currentSelected.id));
@@ -132,8 +132,6 @@ export default function Storefront() {
     }, 350);
 
     return () => clearTimeout(delayDebounceInstance);
-    
-    // selectedProduct is safely omitted from here
   }, [searchQuery, activeCategory, BASE_API_URL]);
 
   // Sync cache records from localStorage on initial run
@@ -150,7 +148,6 @@ export default function Storefront() {
 
   // 🔒 SECURE URL DETAILED LOOKUP WRAPPER
   const fetchSingleProductSecurely = async (id) => {
-    // Escape path traversal or SQL injection structures from client URL
     const sanitizedId = String(id).replace(/[^a-zA-Z0-9-_]/g, '');
     if (!sanitizedId) return;
 
@@ -194,7 +191,6 @@ export default function Storefront() {
     return () => window.removeEventListener('popstate', synchronizeUrlParams);
   }, [products]);
 
-  // Safe handler to update the product and browser search query securely
   const handleProductSelection = (product) => {
     setSelectedProduct(product);
     if (typeof window !== 'undefined') {
@@ -204,7 +200,6 @@ export default function Storefront() {
     }
   };
 
-  // Safe handler to return to catalog and clean the browser history query parameter
   const handleReturnToGrid = () => {
     setSelectedProduct(null);
     if (typeof window !== 'undefined') {
@@ -226,13 +221,11 @@ export default function Storefront() {
     localStorage.setItem('shopvella_cart_cache', JSON.stringify(updatedCartStructure));
   };
 
-  // Switch category states cleanly & close details view
   const handleCategoryChange = (slug) => {
     setActiveCategory(slug);
     handleReturnToGrid();
   };
 
-  // Funnel Option A: Quiet background injection logic layer (with Options & Quantity)
   const addToCart = (product, quantityToAdd = 1, selectedSize = null, selectedColor = null) => {
     if (product.stock_quantity <= 0) {
       triggerToastNotification('Selection configuration sold out.');
@@ -266,7 +259,6 @@ export default function Storefront() {
     triggerToastNotification(`"${product.name}"${optionLabels ? ` [${optionLabels}]` : ''} added safely to cart.`);
   };
 
-  // Funnel Option B: Fast-Track buy now integration
   const fastTrackBuyNow = (product, quantityToAdd = 1, selectedSize = null, selectedColor = null) => {
     if (product.stock_quantity <= 0) {
       triggerToastNotification('Selection model configurations sold out.');
@@ -343,7 +335,6 @@ export default function Storefront() {
       const result = await response.json();
 
       if (result.success) {
-        // TRACK SECURE CASH-ON-DELIVERY ORDER COMPLETIONS
         if (typeof window !== 'undefined' && window.ttq) {
           const cartSubtotal = cart.reduce((total, item) => total + (parseFloat(item.price) || 0) * item.quantity, 0);
           const shippingFee = cartSubtotal > 2000 ? 0 : 200;
@@ -383,7 +374,6 @@ export default function Storefront() {
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans antialiased flex flex-col justify-between selection:bg-black selection:text-white relative">
       
-      {/* Dynamic Notifications System Overlay */}
       {toastMessage && (
         <div className="fixed bottom-6 left-6 z-50 bg-zinc-900 border border-zinc-800 text-white text-xs font-bold uppercase tracking-widest px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-2">
           <span className="text-amber-400">⚡</span> {toastMessage}
@@ -391,17 +381,16 @@ export default function Storefront() {
       )}
 
       <div>
-        {/* Global Navigation System */}
         <nav className="sticky top-0 z-40 w-full border-b border-zinc-200 bg-white/80 backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
             <span 
-              onClick={() => { handleReturnToGrid(); setSearchQuery(''); setActiveCategory('All'); }}
+              onClick={() => { handleReturnToGrid(); setSearchQuery(''); setActiveCategory('bags'); }}
               className="text-xl font-black tracking-tight uppercase text-zinc-900 cursor-pointer select-none"
             >
               Shopvella
             </span>
 
-            {/* Search Input Box */}
+            {/* Desktop Search Input Box */}
             <div className="mx-4 max-w-md flex-1 relative hidden sm:block">
               <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="h-4 w-4 text-zinc-400">
@@ -412,7 +401,7 @@ export default function Storefront() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="search accessories..."
+                placeholder="search products..."
                 className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-1.5 pl-9 pr-4 text-xs text-zinc-900 placeholder-zinc-400 focus:border-black focus:bg-white focus:outline-none transition-all"
               />
             </div>
@@ -445,21 +434,21 @@ export default function Storefront() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="search accessories..."
+              placeholder="search products..."
               className="w-full rounded-full border border-zinc-200 bg-zinc-50 py-2 pl-9 pr-4 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-none"
             />
           </div>
         </div>
 
-        {/* Premium Minimalist Black Banner Promo Hero */}
+        {/* 🚀 TEXT ADJUSTMENT: Updated structural text layout elements from tech configurations to clean universal taglines */}
         {!selectedProduct && (
           <div className="w-full bg-black text-white py-14 px-4 text-center border-b border-zinc-800">
             <div className="max-w-3xl mx-auto space-y-3">
               <h1 className="text-3xl sm:text-4xl font-black tracking-tighter uppercase font-sans">
-                PREMIUM TECH ACCESSORIES.
+                HIGH QUALITY ESSENTIALS.
               </h1>
               <p className="text-xs sm:text-sm text-zinc-400 font-normal leading-relaxed tracking-wide max-w-2xl mx-auto">
-                Explore ultra-reinforced custom defense layouts explicitly engineered for complete device protection. Zero compromises on style aesthetics.
+                A dedicated space providing a diverse selection of premium, high-quality products explicitly curated to elevate your everyday lifestyle.
               </p>
             </div>
           </div>
@@ -472,16 +461,7 @@ export default function Storefront() {
           {!selectedProduct && (
             <div className="mb-8 border-b border-zinc-100 pb-4">
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                <button
-                  onClick={() => handleCategoryChange('All')}
-                  className={`px-5 py-2.5 text-[10px] font-extrabold uppercase tracking-widest rounded-full border transition-all shrink-0 ${
-                    activeCategory === 'All'
-                      ? 'bg-black text-white border-black shadow-xs'
-                      : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400'
-                  }`}
-                >
-                  All Accessories
-                </button>
+                {/* 🚀 REMOVED: The 'All Accessories' hardcoded option button has been deleted */}
                 {categories.map((cat) => (
                   <button
                     key={cat.id}
@@ -510,13 +490,11 @@ export default function Storefront() {
             <div>
               <div className="mb-6 border-b border-zinc-200 pb-3">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-zinc-400">
-                  {activeCategory === 'All' ? 'PREMIUM EDITIONS' : `${activeCategory.replace('-', ' ')} COLLECTION`} ({products.length})
+                  {activeCategory.replace('-', ' ')} COLLECTION ({products.length})
                 </h2>
               </div>
               
-              {/* Core Render Framework conditional blocks */}
               {loading ? (
-                // Elegant Card Skeletons preserving layout dimensions
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                   {Array.from({ length: 8 }).map((_, i) => (
                     <div key={i} className="animate-pulse bg-white border border-zinc-200 rounded-2xl p-3 md:p-4 space-y-4">
@@ -539,11 +517,10 @@ export default function Storefront() {
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="mx-auto h-10 w-10 text-zinc-300 mb-2">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.604 10.604Z" />
                   </svg>
-                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-900">No Accessories Found</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-zinc-900">No Products Found</p>
                   <p className="text-[11px] mt-1 text-zinc-500">There are no items matching this criteria currently inside our systems.</p>
                 </div>
               ) : (
-                // Explicitly rendering 2 products per row on mobile, up to 4 on large screens
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                   {products.map((productItem) => {
                     const imageryArray = productItem.image_urls || [];
@@ -610,7 +587,7 @@ export default function Storefront() {
 
       <footer className="w-full bg-white border-t border-zinc-200 mt-auto">
         <div className="mx-auto max-w-7xl px-4 py-8 text-center sm:text-left sm:flex sm:items-center sm:justify-between text-[11px] text-zinc-400">
-          <p>&copy; 2026 Shopvella Platform. Tech Accessories Defense Systems Matrix Operations.</p>
+          <p>&copy; 2026 Shopvella Platform. Premium Marketplace Matrix Operations.</p>
           <p className="mt-2 sm:mt-0 font-mono tracking-tight uppercase">V2.8 // Turbopack Core</p>
         </div>
       </footer>
